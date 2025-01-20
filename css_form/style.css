@@ -1,0 +1,185 @@
+body {
+    font-family: Montserrat, Arial, sans-serif;
+    background-color: #f4f4f4;
+}
+
+.control-label {
+    font-weight: bold;
+}
+
+.form-control {
+    font-size: 16px;
+    padding: 12px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: #fabd02;
+    box-shadow: 0 0 5px rgba(250, 189, 2, 0.6);
+}
+
+.btn-primary {
+    background-color: #1d2b57;
+    border: none;
+    font-size: 18px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background-color: #fabd02;
+    color: #1d2b57;
+    transform: scale(1.05);
+}
+
+.setup-content {
+    display: none;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.setup-content.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.company-card {
+    border: 2px solid #ddd;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background-color: #fff;
+    width: 100%;
+    max-width: 300px;
+    height: 300px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
+}
+
+.company-card:hover {
+    border-color: #1d2b57;
+    background-color: #eaf4ff;
+    box-shadow: 0 5px 15px rgba(0, 123, 255, 0.2);
+}
+
+.company-logo {
+    max-width: 120px;
+    max-height: 120px;
+    margin-bottom: 15px;
+}
+
+.company-name {
+    font-size: 20px;
+    font-weight: bold;
+    color: #1d2b57;
+    transition: all 0.3s ease;
+}
+
+.company-card:hover .company-name {
+    color: #fabd02;
+}
+
+.selection-container {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+    .selection-container {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .company-card {
+        max-width: 90%;
+        height: auto;
+    }
+}
+
+h1,
+h2 {
+    color: #1d2b57;
+    font-weight: bold;
+}
+
+.btn-primary {
+    background-color: #1d2b57;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #fabd02;
+    color: #1d2b57;
+    transform: scale(1.05);
+}
+
+.file-drop-area {
+    border: 2px dashed #1d2b57;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    background-color: #f9f9f9;
+    transition: all 0.3s ease;
+}
+
+.file-drop-area:hover {
+    background-color: #eaf4ff;
+    border-color: #fabd02;
+}
+
+.file-preview {
+    margin-top: 15px;
+}
+
+.file-preview img {
+    max-width: 200px;
+    max-height: 200px;
+    border-radius: 8px;
+}
+
+.file-preview p {
+    color: #1d2b57;
+}
+
+.setup-content {
+    display: none;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.setup-content.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+h1,
+h2 {
+    color: #1d2b57;
+    font-weight: bold;
+}
