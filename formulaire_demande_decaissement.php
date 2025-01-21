@@ -7,22 +7,39 @@
     <title>Formulaire Fiche</title>
     <!-- Lien vers Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome CSS -->
+    <link rel="stylesheet" href="plugins/css/fontawesome/all.min.css" integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="css_form/style.css" rel="stylesheet">
 </head>
 
 <body>
     <div class="container mt-5">
         <h1 class="text-center mb-4">Formulaire Fiche</h1>
+
+        <div class="progress mb-4">
+            <div class="progress-bar" role="progressbar" style="width: 20%;" id="progress-bar">Étape 1 sur 5</div>
+        </div>
+
         <form id="form_fiche">
             <!-- Étape 0 : Sélection de l'entreprise -->
             <div class="setup-content active" id="step-0">
-                <h2 class="text-center mb-4">Sélectionnez une entreprise</h2>
+
+                <div class="enterprise-selection text-center my-5">
+                    <div class="icon-container mb-3">
+                        <i class="fa fa-building fa-3x"></i>
+                    </div>
+                    <h2 class="enterprise-title text-dark fw-bold">Choisissez une entreprise</h2>
+                    <p class="enterprise-description text-muted mt-2">
+                        Sélectionnez une entreprise dans la liste pour continuer.
+                    </p>
+                </div>
+
                 <div class="selection-container">
-                    <div class="company-card" data-target="#step-1" data-company="FIDEST">
+                    <div class="nextBtn company-card" data-target="#step-1" data-company="FIDEST">
                         <img src="https://app.fidest.ci/logi/img/logo_connex.png" alt="Logo FIDEST" class="company-logo">
                         <div class="company-name">FIDEST</div>
                     </div>
-                    <div class="company-card" data-target="#step-1" data-company="BANAMUR">
+                    <div class="nextBtn company-card" data-target="#step-1" data-company="BANAMUR">
                         <img src="https://assets.codeur.com/uli89xy5439jz7s5ud67n92qi9g8" alt="Logo BANAMUR" class="company-logo">
                         <div class="company-name">BANAMUR</div>
                     </div>
@@ -31,7 +48,17 @@
 
             <!-- Étape 1 : Informations personnelles -->
             <div class="setup-content" id="step-1">
-                <h2 class="text-center mb-4">Informations personnelles</h2>
+
+                <div class="enterprise-selection text-center my-5">
+                    <div class="icon-container mb-3">
+                        <i class="fas fa-user fa-3x"></i>
+                    </div>
+                    <h2 class="enterprise-title text-dark fw-bold">Informations Personnelles</h2>
+                    <p class="enterprise-description text-muted mt-2">
+                        Fournissez vos coordonnées complètes.
+                    </p>
+                </div>
+
                 <div class="mb-3">
                     <label for="nom_prenom" class="form-label control-label">Nom et Prénom(s)</label>
                     <input type="text" class="form-control" id="nom_prenom" name="nom_prenom" placeholder="Nom et Prénom(s)" required>
@@ -40,12 +67,29 @@
                     <label for="telephone" class="form-label control-label">Numéro de téléphone</label>
                     <input type="text" class="form-control" id="telephone" name="telephone" placeholder="Numéro de téléphone" required>
                 </div>
-                <button type="button" class="btn btn-primary nextBtn" data-target="#step-2">Suivant</button>
+                <div class="d-flex justify-content-between mt-4">
+                    <button type="button" class="btn btn-primary prevBtn" data-target="#step-0">
+                        <i class="fas fa-arrow-left"></i> Précédent
+                    </button>
+                    <button type="button" class="btn btn-primary nextBtn" data-target="#step-2">
+                        Suivant <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
             </div>
 
             <!-- Étape 2 : A propos de la demande -->
             <div class="setup-content" id="step-2">
-                <h2 class="text-center mb-4">A propos de la demande</h2>
+
+                <div class="enterprise-selection text-center my-5">
+                    <div class="icon-container mb-3">
+                        <i class="fas fa-question-circle fa-3x"></i>
+                    </div>
+                    <h2 class="enterprise-title text-dark fw-bold">A Propos de la demande</h2>
+                    <p class="enterprise-description text-muted mt-2">
+                        Décrivez brièvement votre demande.
+                    </p>
+                </div>
+
                 <div class="mb-3">
                     <label for="affectation" class="form-label control-label">Affectation</label>
                     <select class="form-control" id="affectation" name="affectation" required>
@@ -71,12 +115,29 @@
                     <label for="details_demande" class="form-label control-label">Détails sur la demande</label>
                     <textarea class="form-control" id="details_demande" name="details_demande" rows="3" placeholder="Détails supplémentaires" required></textarea>
                 </div>
-                <button type="button" class="btn btn-primary nextBtn" data-target="#step-3">Suivant</button>
+                <div class="d-flex justify-content-between mt-4">
+                    <button type="button" class="btn btn-primary prevBtn" data-target="#step-1">
+                        <i class="fas fa-arrow-left"></i> Précédent
+                    </button>
+                    <button type="button" class="btn btn-primary nextBtn" data-target="#step-3">
+                        Suivant <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
             </div>
 
             <!-- Étape 3 : Montant et Mode de paiement -->
             <div class="setup-content" id="step-3">
-                <h2 class="text-center mb-4">Montant et Mode de paiement</h2>
+
+                <div class="enterprise-selection text-center my-5">
+                    <div class="icon-container mb-3">
+                        <i class="fas fa-dollar-sign fa-3x"></i>
+                    </div>
+                    <h2 class="enterprise-title text-dark fw-bold">Données de décaissement</h2>
+                    <p class="enterprise-description text-muted mt-2">
+                        Indiquez les détails financiers.
+                    </p>
+                </div>
+
                 <div class="mb-3">
                     <label for="montant" class="form-label control-label">Montant</label>
                     <input type="number" class="form-control" id="montant" name="montant" placeholder="Montant" required>
@@ -94,12 +155,29 @@
                         <option value="Chèque">Chèque</option>
                     </select>
                 </div>
-                <button type="button" class="btn btn-primary nextBtn" data-target="#step-4">Suivant</button>
+                <div class="d-flex justify-content-between mt-4">
+                    <button type="button" class="btn btn-primary prevBtn" data-target="#step-2">
+                        <i class="fas fa-arrow-left"></i> Précédent
+                    </button>
+                    <button type="button" class="btn btn-primary nextBtn" data-target="#step-4">
+                        Suivant <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
             </div>
 
             <!-- Étape 4 : Photo et CNI -->
             <div class="setup-content" id="step-4">
-                <h2 class="text-center mb-4">Photo et CNI</h2>
+
+                <div class="enterprise-selection text-center my-5">
+                    <div class="icon-container mb-3">
+                        <i class="fas fa-id-badge fa-3x"></i>
+                    </div>
+                    <h2 class="enterprise-title text-dark fw-bold">Photo et Pièce d'identité</h2>
+                    <p class="enterprise-description text-muted mt-2">
+                        Justifiez vos données personnelles
+                    </p>
+                </div>
+
                 <div class="mb-3">
                     <label for="photo_demandeur" class="form-label control-label">Photo du demandeur</label>
                     <div class="file-drop-area" id="photo-drop-area">
@@ -118,16 +196,77 @@
                     </div>
                     <div class="file-preview" id="cni-preview"></div>
                 </div>
-
-                <!-- Étape 5 : Signature -->
-                <div class="setup-content" id="step-5">
-                    <h2 class="text-center mb-4">Signature</h2>
-                    <div class="mb-3">
-                        <canvas id="signature-canvas" width="400" height="200" style="border:1px solid #000;"></canvas>
-                        <button type="button" class="btn btn-danger" onclick="clearSignature()">Effacer</button>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Envoyer</button>
+                <div class="d-flex justify-content-between mt-4">
+                    <button type="button" class="btn btn-primary prevBtn" data-target="#step-3">
+                        <i class="fas fa-arrow-left"></i> Précédent
+                    </button>
+                    <button type="button" class="btn btn-primary nextBtn" data-target="#step-5">
+                        Suivant <i class="fas fa-arrow-right"></i>
+                    </button>
                 </div>
+            </div>
+
+            <!-- Étape 5 : Signature -->
+            <div class="setup-content" id="step-5">
+
+                <div class="enterprise-selection text-center my-5">
+                    <div class="icon-container mb-3">
+                        <i class="fas fa-signature fa-3x"></i>
+                    </div>
+                    <h2 class="enterprise-title text-dark fw-bold">Signature électronique</h2>
+                    <p class="enterprise-description text-muted mt-2">
+                        Signez numériquement votre demande.
+                    </p>
+                </div>
+
+                <p class="text-muted text-center mb-4">
+                    Dessinez votre signature dans la zone ci-dessous. Vous pouvez la modifier si nécessaire.
+                </p>
+                <div class="signature-container text-center mb-3">
+                    <canvas id="signature-canvas" style="border:2px dashed #007bff; border-radius: 8px; width: 100%; max-width: 400px; height: 200px;"></canvas>
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-outline-danger me-2" onclick="clearSignature()">
+                            <i class="fas fa-eraser"></i> Effacer
+                        </button>
+                        <button type="button" class="btn btn-outline-success" onclick="saveSignature()">
+                            <i class="fas fa-save"></i> Enregistrer
+                        </button>
+                    </div>
+                    <small id="signature-feedback" class="text-muted d-block mt-2"></small>
+                </div>
+                <div class="d-flex justify-content-between mt-4">
+                    <button type="button" class="btn btn-primary prevBtn" data-target="#step-4">
+                        <i class="fas fa-arrow-left"></i> Précédent
+                    </button>
+                    <button type="button" class="btn btn-primary nextBtn" data-target="#step-6">
+                        Suivant <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+
+            <!-- Étape 6 : Recapitulatif de la demande -->
+            <div class="setup-content" id="step-6">
+
+                <div class="enterprise-selection text-center my-5">
+                    <div class="icon-container mb-3">
+                        <i class="fas fa-file fa-3x"></i>
+                    </div>
+                    <h2 class="enterprise-title text-dark fw-bold">Récapitulatif de la demande</h2>
+                    <p class="enterprise-description text-muted mt-2">
+                        Vérifiez les informations avant soumission.
+                    </p>
+                </div>
+
+                <div class="d-flex justify-content-between mt-4">
+                    <button type="button" class="btn btn-primary prevBtn" data-target="#step-5">
+                        <i class="fas fa-arrow-left"></i> Précédent
+                    </button>
+                    <button type="button" class="btn btn-secondary nextBtn" data-target="#step-0">
+                        Suivant <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
         </form>
     </div>
 
@@ -135,6 +274,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="plugins/js/fontawesome/all.min.js"></script>
     <script src="js_form/script.js"></script>
 </body>
 
