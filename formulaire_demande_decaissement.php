@@ -1,3 +1,7 @@
+<?php
+$nonce = base64_encode(random_bytes(16));
+header("Content-Security-Policy: script-src 'self' 'nonce-$nonce';");
+?>
 <!DOCTYPE html>
 <html lang="fr">
 
@@ -6,7 +10,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Formulaire Fiche</title>
     <!-- Lien vers Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="plugins/css/bootstrap/bootstrap.min.css" rel="stylesheet">
     <!-- FontAwesome CSS -->
     <link rel="stylesheet" href="plugins/css/fontawesome/all.min.css" integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="css_form/style.css" rel="stylesheet">
@@ -20,7 +24,7 @@
             <div class="progress-bar" role="progressbar" style="width: 20%;" id="progress-bar">Étape 1 sur 5</div>
         </div>
 
-        <form id="form_fiche">
+        <form id="form_fiche" enctype="multipart/form-data" method="post">
             <!-- Étape 0 : Sélection de l'entreprise -->
             <div class="setup-content active" id="step-0">
 
@@ -225,7 +229,7 @@
                 <div class="signature-container text-center mb-3">
                     <canvas id="signature-canvas" style="border:2px dashed #007bff; border-radius: 8px; width: 100%; max-width: 400px; height: 200px;"></canvas>
                     <div class="mt-3">
-                        <button type="button" class="btn btn-outline-danger me-2" onclick="clearSignature()">
+                        <button id="clear-signature" type="button" class="btn btn-outline-danger me-2" onclick="clearSignature()">
                             <i class="fas fa-eraser"></i> Effacer
                         </button>
                         <button type="button" class="btn btn-outline-success" onclick="saveSignature()">
@@ -262,8 +266,8 @@
                     <button type="button" class="btn btn-primary prevBtn" data-target="#step-5">
                         <i class="fas fa-arrow-left"></i> Précédent
                     </button>
-                    <button type="button" class="btn btn-secondary nextBtn" data-target="#step-0">
-                        Suivant <i class="fas fa-arrow-right"></i>
+                    <button type="submit" class="btn btn-success">
+                        Soumettre <i class="fas fa-check"></i>
                     </button>
                 </div>
             </div>
@@ -271,11 +275,11 @@
     </div>
 
     <!-- Scripts Bootstrap -->
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.min.js"></script>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="plugins/js/fontawesome/all.min.js"></script>
-    <script src="js_form/script.js"></script>
+    <script nonce="<?= $nonce ?>" src="plugins/js/popper/popper.min.js"></script>
+    <script nonce="<?= $nonce ?>" src="plugins/js/bootstrap/bootstrap.min.js"></script>
+    <script nonce="<?= $nonce ?>" src="plugins/js/jquery/jquery-3.6.0.min.js"></script>
+    <script nonce="<?= $nonce ?>" src="plugins/js/fontawesome/all.min.js"></script>
+    <script nonce="<?= $nonce ?>" src="js_form/script.js"></script>
 </body>
 
 </html>
