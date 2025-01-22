@@ -11,6 +11,45 @@ $pdo = $dataBaseObj->getConnection();
 $ficheObj = new Fiche($pdo);
 $emailManagerObj = new EmailManager();
 
+
+// Dossiers pour les fichiers
+$photoDir = '../uploads/photo/';
+$cniDir = '../uploads/cni/';
+
+// Création des dossiers s'ils n'existent pas
+if (!is_dir($photoDir)) {
+    mkdir($photoDir, 0777, true);
+}
+if (!is_dir($cniDir)) {
+    mkdir($cniDir, 0777, true);
+}
+
+// Vérification et gestion de la photo du bénéficiaire
+if (isset($_FILES['photo_demandeur']['name']) && $_FILES['photo_demandeur']['error'] == UPLOAD_ERR_OK) {
+    $photoExtension = pathinfo($_FILES['photo_demandeur']['name'], PATHINFO_EXTENSION);
+    $photoNewName = uniqid('photo_') . '.' . $photoExtension;
+    $photoPath = $photoDir . $photoNewName;
+
+    if (move_uploaded_file($_FILES['photo_demandeur']['tmp_name'], $photoPath)) {
+        $data['photo_beneficiaire'] = $photoNewName;
+    } else {
+        $data['photo_beneficiaire'] = null;
+    }
+}
+
+// Vérification et gestion de la CNI du bénéficiaire
+if (isset($_FILES['cni_demandeur']['name']) && $_FILES['cni_demandeur']['error'] == UPLOAD_ERR_OK) {
+    $cniExtension = pathinfo($_FILES['cni_demandeur']['name'], PATHINFO_EXTENSION);
+    $cniNewName = uniqid('cni_') . '.' . $cniExtension;
+    $cniPath = $cniDir . $cniNewName;
+
+    if (move_uploaded_file($_FILES['cni_demandeur']['tmp_name'], $cniPath)) {
+        $data['cni_beneficiaire'] = $cniNewName;
+    } else {
+        $data['cni_beneficiaire'] = null;
+    }
+}
+
 // Données de la fiche
 $data = [
     'beficiaire_fiche' => $_POST['nom_prenom'],
