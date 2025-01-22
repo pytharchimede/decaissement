@@ -224,47 +224,8 @@ include 'headers/header_formulaire_demande_decaissement.php';
                 </div>
             </div>
 
-            <!-- Étape 5 : Signature -->
-            <div class="setup-content" id="step-5">
-
-                <div class="enterprise-selection text-center my-5">
-                    <div class="icon-container mb-3">
-                        <i class="fas fa-signature fa-3x"></i>
-                    </div>
-                    <h2 class="enterprise-title text-dark fw-bold">Signature électronique</h2>
-                    <p class="enterprise-description text-muted mt-2">
-                        Signez numériquement votre demande.
-                    </p>
-                </div>
-
-                <p class="text-muted text-center mb-4">
-                    Dessinez votre signature dans la zone ci-dessous. Vous pouvez la modifier si nécessaire.
-                </p>
-                <div class="signature-container text-center mb-3">
-                    <canvas id="signature-canvas" style="border:2px dashed #007bff; border-radius: 8px; width: 100%; max-width: 400px; height: 200px;"></canvas>
-                    <div class="mt-3">
-                        <button id="clear-signature" type="button" class="btn btn-outline-danger me-2" onclick="clearSignature()">
-                            <i class="fas fa-eraser"></i> Effacer
-                        </button>
-                        <button type="button" class="btn btn-outline-success" onclick="saveSignature()">
-                            <i class="fas fa-save"></i> Enregistrer
-                        </button>
-                    </div>
-                    <small id="signature-feedback" class="text-muted d-block mt-2"></small>
-                </div>
-                <div class="d-flex justify-content-between mt-4">
-                    <button type="button" class="btn btn-primary prevBtn" data-target="#step-4">
-                        <i class="fas fa-arrow-left"></i> Précédent
-                    </button>
-                    <button type="button" class="btn btn-primary nextBtn" data-target="#step-6">
-                        Suivant <i class="fas fa-arrow-right"></i>
-                    </button>
-                </div>
-            </div>
-
-
             <!-- Étape 6 : Recapitulatif de la demande -->
-            <div class="setup-content" id="step-6">
+            <div class="setup-content" id="step-5">
                 <div class="enterprise-selection text-center my-5">
                     <div class="icon-container mb-3">
                         <i class="fas fa-file fa-3x"></i>
@@ -322,7 +283,7 @@ include 'headers/header_formulaire_demande_decaissement.php';
                 </div>
 
                 <div class="d-flex justify-content-between mt-4">
-                    <button type="button" class="btn btn-primary prevBtn" data-target="#step-5">
+                    <button type="button" class="btn btn-primary prevBtn" data-target="#step-4">
                         <i class="fas fa-arrow-left"></i> Précédent
                     </button>
                     <button type="submit" class="btn btn-success">

@@ -30,13 +30,11 @@ class Fiche
             serv_bureau_banamur_id, 
             code_autorisation_feb,
             photo_beneficiaire,
-            signature_beneficiaire,
             cni_beneficiaire
         ) VALUES (
             :beneficiaire, :montant, :telephone, :date_creat, :num_fiche, 
             :affectation, :designation, :num_piece, :chantier, :precision, 
             :serv_banamur, :code_autorisation, :photo_beneficiaire,
-            :signature_beneficiaire,
             :cni_beneficiaire
         )';
 
@@ -58,7 +56,6 @@ class Fiche
             'serv_banamur' => $data['serv_bureau_banamur_id'],
             'code_autorisation' => $data['code_autorisation_feb'],
             'photo_beneficiaire' => $data['photo_beneficiaire'],
-            'signature_beneficiaire' => $data['signature_beneficiaire'],
             'cni_beneficiaire' => $data['cni_beneficiaire']
         ]);
     }

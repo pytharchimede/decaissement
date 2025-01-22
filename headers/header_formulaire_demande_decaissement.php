@@ -1,12 +1,12 @@
 <?php
 session_start();
 
-// if (!isset($_SESSION['code_autorisation_feb']) || $_SESSION['code_autorisation_feb'] == '') {
+if (!isset($_SESSION['code_autorisation_feb']) || $_SESSION['code_autorisation_feb'] == '') {
 
-//     header('Location: https://fidest.ci/performance/demande_decaissement.php');
+    header('Location: https://fidest.ci/performance/demande_decaissement.php');
 
-//     exit();
-// }
+    exit();
+}
 
 include 'model/Database.php';
 include 'model/Affectation.php';

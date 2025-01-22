@@ -218,30 +218,6 @@ document.addEventListener("DOMContentLoaded", function () {
   setupDropArea("photo-drop-area", "photo_demandeur", "photo-preview");
   setupDropArea("cni-drop-area", "cni_demandeur", "cni-preview");
 
-  // Effacer la signature
-  function clearSignature() {
-    var canvas = document.getElementById("signature-canvas");
-    var context = canvas.getContext("2d");
-    context.clearRect(0, 0, canvas.width, canvas.height);
-  }
-
-  document
-    .getElementById("clear-signature")
-    .addEventListener("click", clearSignature);
-
-  // Fonction pour sauvegarder la signature
-  function saveSignature() {
-    var canvas = document.getElementById("signature-canvas");
-    var dataURL = canvas.toDataURL("image/png");
-    document.getElementById("signature-feedback").innerText =
-      "Signature enregistrée avec succès !";
-    console.log("Signature en base64 :", dataURL);
-  }
-
-  document
-    .querySelector(".btn-outline-success")
-    .addEventListener("click", saveSignature);
-
   // Gestion de la soumission du formulaire
   document
     .getElementById("form_fiche")
@@ -276,11 +252,13 @@ document.addEventListener("DOMContentLoaded", function () {
           if (response.success) {
             console.log(result.message); // Afficher un message de succès
 
-            alert("Demande soumise avec succès !");
+            console.log("Demande soumise avec succès !");
             // Réinitialise le formulaire après succès
             document.getElementById("form_fiche").reset();
             $("#photo-preview").html(""); // Efface l'aperçu de la photo
             $("#cni-preview").html(""); // Efface l'aperçu de la CNI
+            // Rediriger vers un autre formulaire après succès
+            window.location.href = "../signer_fiche/index.php";
           } else {
             console.log(result.message); // Afficher un message de succès
 

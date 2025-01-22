@@ -1,5 +1,5 @@
 <?php
-
+session_start();
 require_once '../model/Fiche.php';
 require_once '../model/EmailManager.php';
 require_once '../model/Database.php';
@@ -61,8 +61,12 @@ $data = [
     'chantier_id' => $_POST['chantier'],
     'precision_fiche' => $_POST['details_demande'],
     'serv_bureau_banamur_id' => $_POST['service'],
-    'code_autorisation_feb' => $_POST['service'],
+    'code_autorisation_feb' => isset($_SESSION['code_autorisation_feb']) ? $_SESSION['code_autorisation_feb'] : '',
 ];
+
+
+//Définir une variable de session
+$_SESSION['num_fiche'] = $data['num_fiche'];
 
 // Vérification des fichiers
 $data['photo_beneficiaire'] = isset($_FILES['photo_demandeur']['name']) && $_FILES['photo_demandeur']['error'] == UPLOAD_ERR_OK
@@ -70,8 +74,6 @@ $data['photo_beneficiaire'] = isset($_FILES['photo_demandeur']['name']) && $_FIL
 
 $data['cni_beneficiaire'] = isset($_FILES['cni_demandeur']['name']) && $_FILES['cni_demandeur']['error'] == UPLOAD_ERR_OK
     ? $_FILES['cni_demandeur']['name'] : null;
-
-$data['signature_beneficiaire'] = '';
 
 // Nettoyage des données
 $data = array_map(function ($value) {
