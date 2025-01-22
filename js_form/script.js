@@ -172,12 +172,16 @@ document.addEventListener("DOMContentLoaded", function () {
           // Traitement de la réponse du serveur
           console.log(response); // Affiche la réponse dans la console (pour débogage)
           if (response.success) {
+            console.log(result.message); // Afficher un message de succès
+
             alert("Demande soumise avec succès !");
             // Réinitialise le formulaire après succès
             document.getElementById("form_fiche").reset();
             $("#photo-preview").html(""); // Efface l'aperçu de la photo
             $("#cni-preview").html(""); // Efface l'aperçu de la CNI
           } else {
+            console.log(result.message); // Afficher un message de succès
+
             alert(
               response.message || "Une erreur est survenue. Veuillez réessayer."
             );
