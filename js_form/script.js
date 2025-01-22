@@ -196,4 +196,37 @@ document.addEventListener("DOMContentLoaded", function () {
         },
       });
     });
+
+  //Script recap
+
+  // Script pour remplir automatiquement les données dans la fiche récapitulative
+  document.addEventListener("DOMContentLoaded", function () {
+    // Exemple de données, à remplacer par des données dynamiques
+    const formData = {
+      nomPrenom: "John Doe",
+      telephone: "+225 01 23 45 67 89",
+      affectation: "Chantier",
+      motif: "Avance sur salaire",
+      details: "Achat urgent",
+      montant: "100 000 FCFA",
+      modePaiement: "Orange Money",
+      photo: "path/to/photo.jpg",
+      cni: "path/to/cni.jpg",
+    };
+
+    // Mise à jour des champs dans la fiche récapitulative
+    document.getElementById("recap-nom-prenom").textContent =
+      formData.nomPrenom;
+    document.getElementById("recap-telephone").textContent = formData.telephone;
+    document.getElementById("recap-affectation").textContent =
+      formData.affectation;
+    document.getElementById("recap-motif").textContent = formData.motif;
+    document.getElementById("recap-details").textContent = formData.details;
+    document.getElementById("recap-montant").textContent = formData.montant;
+    document.getElementById("recap-mode").textContent = formData.modePaiement;
+
+    // Mise à jour des images
+    document.getElementById("photo-identite").src = formData.photo;
+    document.getElementById("cni-image").src = formData.cni;
+  });
 });

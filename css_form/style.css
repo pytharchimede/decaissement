@@ -227,3 +227,39 @@ h2 {
 .text-primary {
     color: #1d2b57 !important;
 }
+
+
+/* Style recap */
+/* Styles pour la fiche récapitulative */
+.recapitulatif {
+    border: 1px solid #ddd;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+  }
+  .recap-header {
+    border-bottom: 2px solid #007bff;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+  }
+  .company-logo {
+    height: 60px;
+  }
+  .photo-container, .cni-container {
+    margin: 20px 0;
+  }
+  .photo-identite, .cni-image {
+    width: 100%;
+    max-width: 150px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+  }
+  .info-container {
+    margin-top: 20px;
+  }
+  .recap-footer .signature {
+    width: 150px;
+    height: 50px;
+    border: 1px dashed #aaa;
+    margin-top: 10px;
+  }

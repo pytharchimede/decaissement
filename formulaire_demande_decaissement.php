@@ -251,7 +251,6 @@ header("Content-Security-Policy: script-src 'self' 'nonce-$nonce';");
 
             <!-- Étape 6 : Recapitulatif de la demande -->
             <div class="setup-content" id="step-6">
-
                 <div class="enterprise-selection text-center my-5">
                     <div class="icon-container mb-3">
                         <i class="fas fa-file fa-3x"></i>
@@ -260,6 +259,52 @@ header("Content-Security-Policy: script-src 'self' 'nonce-$nonce';");
                     <p class="enterprise-description text-muted mt-2">
                         Vérifiez les informations avant soumission.
                     </p>
+                </div>
+
+                <div id="recapitulatif-container" class="recapitulatif">
+                    <div class="recap-header d-flex align-items-center justify-content-between">
+                        <img id="company-logo" src="https://app.fidest.ci/logi/img/logo_connex.png" alt="Logo de l'entreprise" class="company-logo">
+                        <h3 class="fw-bold">RÉCAPITULATIF DE LA DEMANDE</h3>
+                    </div>
+
+                    <div class="recap-body">
+                        <div class="photo-container">
+                            <img id="photo-identite" src="https://assets.codeur.com/uli89xy5439jz7s5ud67n92qi9g8" alt="Photo d'identité" class="photo-identite">
+                        </div>
+                        <div class="info-container">
+                            <h4>Informations personnelles</h4>
+                            <p><strong>Nom et Prénom :</strong> <span id="recap-nom-prenom">John Doe</span></p>
+                            <p><strong>Téléphone :</strong> <span id="recap-telephone">+225 01 23 45 67 89</span></p>
+                            <p><strong>Affectation :</strong> <span id="recap-affectation">Chantier</span></p>
+                            <p><strong>Motif de la demande :</strong> <span id="recap-motif">Avance sur salaire</span></p>
+                            <p><strong>Détails de la demande :</strong> <span id="recap-details">Achat urgent</span></p>
+                            <p><strong>Montant :</strong> <span id="recap-montant">100 000 FCFA</span></p>
+                            <p><strong>Mode de paiement :</strong> <span id="recap-mode">Orange Money</span></p>
+                        </div>
+
+                        <div class="cni-container">
+                            <h4>Pièce d'identité</h4>
+                            <img id="cni-image" src="https://app.fidest.ci/logi/img/logo_connex.png" alt="Image de la CNI" class="cni-image">
+                        </div>
+                    </div>
+
+                    <div class="recap-footer text-center mt-4">
+                        <h5>Signatures</h5>
+                        <div class="signatures d-flex justify-content-around mt-3">
+                            <div>
+                                <p class="text-muted">Demandeur</p>
+                                <div class="signature"></div>
+                            </div>
+                            <div>
+                                <p class="text-muted">Validateur</p>
+                                <div class="signature"></div>
+                            </div>
+                            <div>
+                                <p class="text-muted">Responsable</p>
+                                <div class="signature"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="d-flex justify-content-between mt-4">
