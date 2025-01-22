@@ -71,6 +71,16 @@ class Fiche
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
+    // Méthode pour lire une fiche par son ID
+    public function getByAuthCode($code_autorisation_feb)
+    {
+        $sql = "SELECT * FROM fiche WHERE code_autorisation_feb = :code_autorisation_feb";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindParam(':code_autorisation_feb', $code_autorisation_feb, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
     // Méthode pour mettre à jour une fiche
     public function update($id_fiche, $data)
     {
