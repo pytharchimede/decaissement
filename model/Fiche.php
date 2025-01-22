@@ -28,11 +28,16 @@ class Fiche
             chantier_id, 
             precision_fiche, 
             serv_bureau_banamur_id, 
-            code_autorisation_feb
+            code_autorisation_feb,
+            photo_beneficiaire,
+            signature_beneficiaire,
+            cni_beneficiaire
         ) VALUES (
             :beneficiaire, :montant, :telephone, :date_creat, :num_fiche, 
             :affectation, :designation, :num_piece, :chantier, :precision, 
-            :serv_banamur, :code_autorisation
+            :serv_banamur, :code_autorisation, :photo_beneficiaire,
+            :signature_beneficiaire,
+            :cni_beneficiaire
         )';
 
         // Préparer la requête
@@ -51,7 +56,10 @@ class Fiche
             'chantier' => $data['chantier_id'],
             'precision' => $data['precision_fiche'],
             'serv_banamur' => $data['serv_bureau_banamur_id'],
-            'code_autorisation' => $data['code_autorisation_feb']
+            'code_autorisation' => $data['code_autorisation_feb'],
+            'photo_beneficiaire' => $data['photo_beneficiaire'],
+            'signature_beneficiaire' => $data['signature_beneficiaire'],
+            'cni_beneficiaire' => $data['cni_beneficiaire']
         ]);
     }
 

@@ -22,8 +22,25 @@ $data = [
     'chantier_id' => $_POST['chantier'],
     'precision_fiche' => $_POST['details_demande'],
     'serv_bureau_banamur_id' => $_POST['service'],
-    'code_autorisation_feb' => $_POST['service']
+    'code_autorisation_feb' => $_POST['service'],
 ];
+
+// Vérification des fichiers
+$data['photo_beneficiaire'] = isset($_FILES['photo_demandeur']['name']) && $_FILES['photo_demandeur']['error'] == UPLOAD_ERR_OK
+    ? $_FILES['photo_demandeur']['name'] : null;
+
+$data['cni_beneficiaire'] = isset($_FILES['cni_demandeur']['name']) && $_FILES['cni_demandeur']['error'] == UPLOAD_ERR_OK
+    ? $_FILES['cni_demandeur']['name'] : null;
+
+$data['signature_beneficiaire'] = '';
+
+// Nettoyage des données
+$data = array_map(function ($value) {
+    return is_string($value) ? trim($value) : $value;
+}, $data);
+
+// Debug temporaire
+var_dump($data);
 
 // Vérifiez si l'affectation est un chantier (ID = 1)
 if ($_POST['affectation'] == "1") {
