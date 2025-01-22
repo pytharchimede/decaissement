@@ -13,8 +13,8 @@ $emailManagerObj = new EmailManager();
 
 
 // Dossiers pour les fichiers
-$photoDir = '../uploads/photo/';
-$cniDir = '../uploads/cni/';
+$photoDir = '../../img_demande/';
+$cniDir = '../../logi/img/';
 
 // Création des dossiers s'ils n'existent pas
 if (!is_dir($photoDir)) {
