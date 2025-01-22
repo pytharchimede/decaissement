@@ -4,32 +4,35 @@ require_once '../model/Fiche.php';
 require_once '../model/EmailManager.php';
 require_once '../model/Database.php';
 
+$dataBaseObj = new Database();
+$pdo = $dataBaseObj->getConnection();
+
 // Initialisation
 $ficheObj = new Fiche($pdo);
 $emailManagerObj = new EmailManager();
 
 // Données de la fiche
 $data = [
-    'beneficiaire_fiche' => $_POST['beneficiaire_fiche'],
-    'montant_fiche' => $_POST['montant_fiche'],
-    'tel_beneficiaire_fiche' => $_POST['tel_beneficiaire_fiche'],
+    'beficiaire_fiche' => $_POST['nom_prenom'],
+    'montant_fiche' => $_POST['montant'],
+    'tel_beneficiaire_fiche' => $_POST['telephone'],
     'num_fiche' => $ficheObj->generateNumFiche(),
-    'affectation_id' => $_POST['affectation_id'],
-    'designation_fiche' => $_POST['designation_fiche'],
-    'num_piece' => $_POST['num_piece'],
-    'chantier_id' => $_POST['chantier_id'],
-    'precision_fiche' => $_POST['precision_fiche'],
-    'serv_bureau_banamur_id' => $_POST['serv_bureau_banamur_id'],
-    'serv_bureau_fidest_id' => $_POST['serv_bureau_fidest_id'],
-    'serv_rh_id' => $_POST['serv_rh_id'],
-    'serv_log_id' => $_POST['serv_log_id'],
-    'code_autorisation_feb' => $_POST['code_autorisation_feb']
+    'affectation_id' => $_POST['affectation'],
+    'designation_fiche' => $_POST['motif_demande'],
+    'num_piece' => $_POST['mode_paiement'],
+    'chantier_id' => $_POST['chantier'],
+    'precision_fiche' => $_POST['details_demande'],
+    'serv_bureau_banamur_id' => $_POST['service'],
+    'serv_bureau_fidest_id' => $_POST['service'],
+    'serv_rh_id' => $_POST['service'],
+    'serv_log_id' => $_POST['service'],
+    'code_autorisation_feb' => $_POST['service']
 ];
 
 // Insérer la fiche
 if ($ficheObj->insertFiche($data)) {
     $subject = "Nouvelle fiche créée";
-    $body = "<b>{$data['beneficiaire_fiche']}</b> a émis une demande...";
+    $body = "<b>{$data['beficiaire_fiche']}</b> a émis une demande...";
     $recipients = [
         "amichia@fidest.org" => "Amichia KANE",
         "amani_ulrich@outlook.fr" => "Ulrich AMANI"

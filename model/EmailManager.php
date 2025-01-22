@@ -1,5 +1,10 @@
 <?php
 
+// Inclure PHPMailer manuellement
+require_once '../phpmailer/src/PHPMailer.php';
+require_once '../phpmailer/src/Exception.php';
+require_once '../phpmailer/src/SMTP.php';
+
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 

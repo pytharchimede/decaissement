@@ -13,7 +13,7 @@ class Fiche
     public function insertFiche($data)
     {
         $query = 'INSERT INTO fiche (
-            beneficiaire_fiche, 
+            beficiaire_fiche, 
             montant_fiche, 
             tel_beneficiaire_fiche, 
             date_creat_fiche, 
@@ -36,7 +36,7 @@ class Fiche
 
         $stmt = $this->pdo->prepare($query);
         return $stmt->execute([
-            'beneficiaire' => $data['beneficiaire_fiche'],
+            'beneficiaire' => $data['beficiaire_fiche'],
             'montant' => $data['montant_fiche'],
             'telephone' => $data['tel_beneficiaire_fiche'],
             'date_creat' => gmdate('Y-m-d H:i:s'),
