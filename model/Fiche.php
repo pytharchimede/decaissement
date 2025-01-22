@@ -9,9 +9,13 @@ class Fiche
         $this->pdo = $pdo;
     }
 
-    // Méthode pour insérer une nouvelle fiche
     public function insertFiche($data)
     {
+        // Vérifier et nettoyer les données pour éviter les erreurs
+        $data = array_map('trim', $data); // Supprime les espaces inutiles
+        $data['date_creat_fiche'] = gmdate('Y-m-d H:i:s'); // Ajout de la date de création
+
+        // Requête d'insertion SQL
         $query = 'INSERT INTO fiche (
             beficiaire_fiche, 
             montant_fiche, 
@@ -24,22 +28,22 @@ class Fiche
             chantier_id, 
             precision_fiche, 
             serv_bureau_banamur_id, 
-            serv_bureau_fidest_id, 
-            serv_rh_id, 
-            serv_log_id, 
             code_autorisation_feb
         ) VALUES (
             :beneficiaire, :montant, :telephone, :date_creat, :num_fiche, 
             :affectation, :designation, :num_piece, :chantier, :precision, 
-            :serv_banamur, :serv_fidest, :serv_rh, :serv_log, :code_autorisation
+            :serv_banamur, :code_autorisation
         )';
 
+        // Préparer la requête
         $stmt = $this->pdo->prepare($query);
+
+        // Exécution avec les valeurs mappées
         return $stmt->execute([
             'beneficiaire' => $data['beficiaire_fiche'],
             'montant' => $data['montant_fiche'],
             'telephone' => $data['tel_beneficiaire_fiche'],
-            'date_creat' => gmdate('Y-m-d H:i:s'),
+            'date_creat' => $data['date_creat_fiche'],
             'num_fiche' => $data['num_fiche'],
             'affectation' => $data['affectation_id'],
             'designation' => $data['designation_fiche'],
@@ -47,12 +51,10 @@ class Fiche
             'chantier' => $data['chantier_id'],
             'precision' => $data['precision_fiche'],
             'serv_banamur' => $data['serv_bureau_banamur_id'],
-            'serv_fidest' => $data['serv_bureau_fidest_id'],
-            'serv_rh' => $data['serv_rh_id'],
-            'serv_log' => $data['serv_log_id'],
             'code_autorisation' => $data['code_autorisation_feb']
         ]);
     }
+
 
     // Méthode pour lire une fiche par son ID
     public function getById($id_fiche)

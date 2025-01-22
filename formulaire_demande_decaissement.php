@@ -1,6 +1,5 @@
 <?php
-$nonce = base64_encode(random_bytes(16));
-header("Content-Security-Policy: script-src 'self' 'nonce-$nonce';");
+include 'headers/header_formulaire_demande_decaissement.php';
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -98,22 +97,41 @@ header("Content-Security-Policy: script-src 'self' 'nonce-$nonce';");
                     <label for="affectation" class="form-label control-label">Affectation</label>
                     <select class="form-control" id="affectation" name="affectation" required>
                         <option value="">--Choisir Affectation--</option>
-                        <option value="chantier">Chantier</option>
-                        <option value="bureau">Bureau</option>
-                        <option value="ressources_humaines">Ressources Humaines</option>
+                        <?php foreach ($listeAffectation as $affectation) { ?>
+                            <option value="<?php echo $affectation['id_affectation'] ?>"><?php echo $affectation['lib_affectation'] ?></option>
+                        <?php } ?>
                     </select>
                 </div>
                 <div class="mb-3" id="chantier-select" style="display:none;">
                     <label for="chantier" class="form-label control-label">Code Chantier</label>
-                    <input type="text" class="form-control" id="chantier" name="chantier" placeholder="Code Chantier" />
+                    <select class="form-control" id="chantier" name="chantier" required>
+                        <option value="">--Choisir Chantier--</option>
+                        <?php foreach ($listeChantier as $chantier) { ?>
+                            <option value="<?php echo $chantier['id_chantier'] ?>"><?php echo $chantier['num_chantier'] ?></option>
+                        <?php } ?>
+                    </select>
                 </div>
                 <div class="mb-3" id="bureau-select" style="display:none;">
                     <label for="service" class="form-label control-label">Service Concerné</label>
-                    <input type="text" class="form-control" id="service" name="service" placeholder="Service Concerné" />
+                    <select class="form-control" id="service" name="service" required>
+                        <option value="">--Choisir Service--</option>
+                        <?php foreach ($listeService as $service) { ?>
+                            <option value="<?php echo $service['id_serv_bureau_banamur'] ?>"><?php echo $service['lib_serv_bureau_banamur'] ?></option>
+                        <?php } ?>
+                    </select>
                 </div>
-                <div class="mb-3">
-                    <label for="motif_demande" class="form-label control-label">Motif de la demande</label>
-                    <input type="text" class="form-control" id="motif_demande" name="motif_demande" placeholder="Motif" required>
+                <div class="mb-3" id="motif-select">
+                    <label for="motif_select" class="form-label control-label">Motif de la demande</label>
+                    <select class="form-control" id="motif_select" name="motif_select">
+                        <option value="">--Choisir un motif--</option>
+                        <option value="Motif 1">Motif 1</option>
+                        <option value="Motif 2">Motif 2</option>
+                        <option value="Motif 3">Motif 3</option>
+                    </select>
+                </div>
+                <div class="mb-3" id="motif-input">
+                    <label for="motif_input" class="form-label control-label">Motif de la demande</label>
+                    <input type="text" class="form-control" id="motif_input" name="motif_input" placeholder="Motif">
                 </div>
                 <div class="mb-3">
                     <label for="details_demande" class="form-label control-label">Détails sur la demande</label>
@@ -320,11 +338,11 @@ header("Content-Security-Policy: script-src 'self' 'nonce-$nonce';");
     </div>
 
     <!-- Scripts Bootstrap -->
-    <script nonce="<?= $nonce ?>" src="plugins/js/popper/popper.min.js"></script>
-    <script nonce="<?= $nonce ?>" src="plugins/js/bootstrap/bootstrap.min.js"></script>
-    <script nonce="<?= $nonce ?>" src="plugins/js/jquery/jquery-3.6.0.min.js"></script>
-    <script nonce="<?= $nonce ?>" src="plugins/js/fontawesome/all.min.js"></script>
-    <script nonce="<?= $nonce ?>" src="js_form/script.js"></script>
+    <script src="plugins/js/popper/popper.min.js"></script>
+    <script src="plugins/js/bootstrap/bootstrap.min.js"></script>
+    <script src="plugins/js/jquery/jquery-3.6.0.min.js"></script>
+    <script src="plugins/js/fontawesome/all.min.js"></script>
+    <script src="js_form/script.js"></script>
 </body>
 
 </html>

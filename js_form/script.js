@@ -57,16 +57,114 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 
+  document.getElementById("motif-input").style.display = "none";
+  document.getElementById("motif_input").setAttribute("disabled", "disabled");
+  document.getElementById("motif-select").style.display = "none";
+  document.getElementById("motif_select").setAttribute("disabled", "disabled");
+
   // Gestion du champ d'affectation
   document
     .getElementById("affectation")
     .addEventListener("change", function () {
       const affectation = this.value;
+
       document.getElementById("chantier-select").style.display =
-        affectation === "chantier" ? "block" : "none";
+        affectation === "1" ? "block" : "none";
       document.getElementById("bureau-select").style.display =
-        affectation === "bureau" ? "block" : "none";
+        affectation === "19" ? "block" : "none";
+
+      // Gestion du champ motif
+      if (affectation === "1") {
+        console.log("Affectation  = chantier");
+        document
+          .getElementById("motif_select")
+          .setAttribute("disabled", "disabled");
+
+        // Affectation chantier : affiche le select pour le motif
+        document.getElementById("motif-select").style.display = "block";
+        document.getElementById("motif-input").style.display = "none";
+        document.getElementById("motif-input").value = ""; // Réinitialise l'input
+      } else if (affectation === "19") {
+        console.log("Affectation  = Bureau");
+        document
+          .getElementById("motif_input")
+          .setAttribute("disabled", "false");
+
+        // Affectation bureau : affiche l'input pour le motif
+        document.getElementById("motif-select").style.display = "none";
+        document.getElementById("motif-input").style.display = "block";
+        document.getElementById("motif-select").value = ""; // Réinitialise le select
+      }
     });
+
+  //Lors de la sélection d'un chantier
+  document.getElementById("service").addEventListener("change", function () {
+    const service = this.value;
+    if (service != "") {
+      document.getElementById("motif_input").removeAttribute("disabled");
+    } else {
+      document
+        .getElementById("motif_input")
+        .setAttribute("disabled", "disabled");
+    }
+  });
+
+  // Lors de la sélection d'un chantier
+  document.getElementById("chantier").addEventListener("change", function () {
+    const chantier = this.value;
+
+    if (chantier !== "") {
+      // Activer le select "motif_select"
+      document.getElementById("motif_select").removeAttribute("disabled");
+
+      // Envoyer la valeur du chantier à charge_designation
+      fetch("request/charge_designation.php", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: "chantier=" + encodeURIComponent(chantier),
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("Erreur réseau ou réponse invalide");
+          }
+          return response.json(); // Supposons que le fichier retourne un JSON
+        })
+        .then((data) => {
+          if (data.status === "succes" && Array.isArray(data.message)) {
+            const motifSelect = document.getElementById("motif_select");
+
+            // Vider les options existantes
+            motifSelect.innerHTML = "";
+
+            // Ajouter une option par défaut
+            const defaultOption = document.createElement("option");
+            defaultOption.text = "--Choisir un motif--";
+            defaultOption.value = "";
+            motifSelect.appendChild(defaultOption);
+
+            // Remplir le select avec les désignations
+            data.message.forEach((designation) => {
+              const option = document.createElement("option");
+              option.value = designation.id_designation; // ID unique
+              option.text = designation.lib_designation; // Libellé à afficher
+              motifSelect.appendChild(option);
+            });
+          } else {
+            console.error("Données inattendues :", data);
+          }
+        })
+        .catch((error) => {
+          console.error("Erreur lors du chargement des désignations :", error);
+        });
+    } else {
+      // Désactiver et vider le select si aucun chantier sélectionné
+      const motifSelect = document.getElementById("motif_select");
+      motifSelect.innerHTML = '<option value="">--Choisir un motif--</option>';
+      motifSelect.setAttribute("disabled", "disabled");
+    }
+  });
 
   // Fonction pour afficher l'aperçu des fichiers
   function displayPreview(input, previewId) {
