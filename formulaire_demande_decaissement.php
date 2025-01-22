@@ -123,10 +123,6 @@ include 'headers/header_formulaire_demande_decaissement.php';
                 <div class="mb-3" id="motif-select">
                     <label for="motif_select" class="form-label control-label">Motif de la demande</label>
                     <select class="form-control" id="motif_select" name="motif_select">
-                        <option value="">--Choisir un motif--</option>
-                        <option value="Motif 1">Motif 1</option>
-                        <option value="Motif 2">Motif 2</option>
-                        <option value="Motif 3">Motif 3</option>
                     </select>
                 </div>
                 <div class="mb-3" id="motif-input">

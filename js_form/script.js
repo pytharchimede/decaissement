@@ -80,6 +80,8 @@ document.addEventListener("DOMContentLoaded", function () {
           .getElementById("motif_select")
           .setAttribute("disabled", "disabled");
 
+        document.getElementById("service").required = false; // Rendre service non requis
+
         // Affectation chantier : affiche le select pour le motif
         document.getElementById("motif-select").style.display = "block";
         document.getElementById("motif-input").style.display = "none";
@@ -89,6 +91,8 @@ document.addEventListener("DOMContentLoaded", function () {
         document
           .getElementById("motif_input")
           .setAttribute("disabled", "false");
+
+        document.getElementById("chantier").required = false; // Rendre service non requis
 
         // Affectation bureau : affiche l'input pour le motif
         document.getElementById("motif-select").style.display = "none";
@@ -147,7 +151,7 @@ document.addEventListener("DOMContentLoaded", function () {
             // Remplir le select avec les désignations
             data.message.forEach((designation) => {
               const option = document.createElement("option");
-              option.value = designation.id_designation; // ID unique
+              option.value = designation.lib_designation; // ID unique
               option.text = designation.lib_designation; // Libellé à afficher
               motifSelect.appendChild(option);
             });
