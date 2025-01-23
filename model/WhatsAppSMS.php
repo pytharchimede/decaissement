@@ -200,30 +200,43 @@ class WhatsAppSMS
         }
     }
 
+    /**
+     * Envoie un message WhatsApp avec le rapport de décaissements journalier
+     *
+     * @param string $recipientNumber Numéro de téléphone du destinataire (format international)
+     * @param string $recipientName Nom du destinataire ({{1}})
+     * @return mixed SID du message ou false en cas d'erreur
+     */
     public function sendDailyExpenseReport($recipientNumber, $recipientName)
     {
         try {
             $message = $this->client->messages->create(
                 "whatsapp:$recipientNumber",
                 [
-                    "from" => "whatsapp:{$this->from}",
-                    "body" => "Bonsoir $recipientName, votre rapport de décaissements journalier est prêt à être consulté.",
+                    "from" => $this->from,
+                    "contentSid" => "HX1892b7c28b64cdce6b9850c4ee15c7c4", // SID du template
+                    "contentVariables" => json_encode([
+                        "1" => $recipientName
+                    ]),
                     "persistentAction" => ["https://fidest.ci/logi/gestion_cron/exportation/pdf/gen_point.php"]
                 ]
             );
 
+            error_log("Message WhatsApp envoyé avec succès, SID: " . $message->sid);
             return [
                 'status' => 'success',
                 'messageSid' => $message->sid,
-                'message' => 'Message sent successfully!'
+                'message' => 'Message envoyé avec succès !'
             ];
         } catch (\Exception $e) {
+            error_log("Erreur lors de l'envoi du message: " . $e->getMessage());
             return [
                 'status' => 'error',
                 'message' => $e->getMessage()
             ];
         }
     }
+
 
     /**
      * Envoie un message WhatsApp en utilisant le template "confirm_decaissement"
