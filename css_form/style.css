@@ -263,3 +263,86 @@ h2 {
     border: 1px dashed #aaa;
     margin-top: 10px;
   }
+
+
+  /*Design blocs entreprise*/
+
+  /* Conteneur principal */
+.selection-container {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    padding: 20px;
+    flex-wrap: wrap;
+}
+
+/* Carte entreprise */
+.company-card {
+    background: linear-gradient(145deg, #ffffff, #e6e6e6);
+    border-radius: 15px;
+    box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.2);
+    text-align: center;
+    padding: 20px;
+    width: 220px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+}
+
+.company-card:hover {
+    transform: scale(1.05);
+    box-shadow: 0px 12px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Intérieur des cartes */
+.company-card-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+/* Logos */
+.company-logo {
+    max-width: 80px;
+    max-height: 80px;
+    object-fit: contain;
+    border-radius: 10px;
+}
+
+/* Logos combinés pour la 3e case */
+.logos-combined {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+}
+
+.small-logo {
+    max-width: 60px;
+    max-height: 60px;
+}
+
+/* Nom de l'entreprise */
+.company-name {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #333;
+    margin-top: 10px;
+}
+
+/* Animation globale */
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.2);
+    }
+    50% {
+        transform: scale(1.03);
+        box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.3);
+    }
+}
+.company-card:hover {
+    animation: pulse 0.8s infinite;
+}

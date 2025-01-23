@@ -32,15 +32,16 @@ function validateName() {
   const errorMessage = document.getElementById("name-error-message");
   const succesMessage = document.getElementById("name-succes-message");
 
-  // Vérifie si la valeur contient exactement 10 chiffres
-  const phoneValue = phoneInput.value;
-  const regex = /^(?=.*[a-zA-Z]{3,}).+$/;
+  // Vérifie si le champ n'est pas vide
+  const phoneValue = phoneInput.value.trim(); // Trim pour éliminer les espaces inutiles
 
-  if (!regex.test(phoneValue)) {
+  if (!phoneValue) {
+    // Si le champ est vide
     errorMessage.style.display = "block";
     succesMessage.style.display = "none";
     return false;
   } else {
+    // Si une valeur est saisie
     errorMessage.style.display = "none";
     succesMessage.style.display = "block";
     return true;

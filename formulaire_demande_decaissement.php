@@ -38,15 +38,34 @@ include 'headers/header_formulaire_demande_decaissement.php';
                 </div>
 
                 <div class="selection-container">
+                    <!-- Première carte : FIDEST -->
                     <div class="nextBtn company-card" data-target="#step-1" data-company="FIDEST">
-                        <img src="https://app.fidest.ci/logi/img/logo_connex.png" alt="Logo FIDEST" class="company-logo">
-                        <div class="company-name">FIDEST</div>
+                        <div class="company-card-inner">
+                            <img src="https://app.fidest.ci/logi/img/logo_connex.png" alt="Logo FIDEST" class="company-logo">
+                            <div class="company-name">FIDEST</div>
+                        </div>
                     </div>
+
+                    <!-- Deuxième carte : BANAMUR -->
                     <div class="nextBtn company-card" data-target="#step-1" data-company="BANAMUR">
-                        <img src="https://assets.codeur.com/uli89xy5439jz7s5ud67n92qi9g8" alt="Logo BANAMUR" class="company-logo">
-                        <div class="company-name">BANAMUR</div>
+                        <div class="company-card-inner">
+                            <img src="https://assets.codeur.com/uli89xy5439jz7s5ud67n92qi9g8" alt="Logo BANAMUR" class="company-logo">
+                            <div class="company-name">BANAMUR</div>
+                        </div>
+                    </div>
+
+                    <!-- Troisième carte : BUREAU FIDEST BANAMUR -->
+                    <div class="nextBtn company-card" data-target="#step-1" data-company="BUREAU FIDEST BANAMUR">
+                        <div class="company-card-inner">
+                            <div class="logos-combined">
+                                <img src="https://app.fidest.ci/logi/img/logo_connex.png" alt="Logo FIDEST" class="company-logo small-logo">
+                                <img src="https://assets.codeur.com/uli89xy5439jz7s5ud67n92qi9g8" alt="Logo BANAMUR" class="company-logo small-logo">
+                            </div>
+                            <div class="company-name">BUREAU FIDEST BANAMUR</div>
+                        </div>
                     </div>
                 </div>
+
 
             </div>
 
@@ -65,8 +84,8 @@ include 'headers/header_formulaire_demande_decaissement.php';
 
                 <div class="mb-3">
                     <label for="nom_prenom" class="form-label control-label">Nom et Prénom(s)</label>
-                    <input type="text" class="form-control" id="nom_prenom" name="nom_prenom" placeholder="Nom et Prénom(s)" oninput="validateName()" onchange="validateName()" pattern="^[a-zA-Z0-9]{3,}$" title="Le nom doit contenir au moins 3 caractères." required>
-                    <div id="name-error-message" style="color: red; display: none; margin : 4px;">Le nom doit contenir au moins 3 caractères.</div>
+                    <input type="text" class="form-control" id="nom_prenom" name="nom_prenom" placeholder="Nom et Prénom(s)" oninput="validateName()" onchange="validateName()" title="Veuillez saisir le nom." required>
+                    <div id="name-error-message" style="color: red; display: none; margin : 4px;">Veuillez saisir le nom.</div>
                     <div id="name-succes-message" style="color: green; display: none; margin : 4px;"><i class="fa fa-check-circle"></i> Parfait !</div>
                 </div>
 
@@ -274,7 +293,7 @@ include 'headers/header_formulaire_demande_decaissement.php';
                         </div>
                     </div>
 
-                    <div class="recap-footer text-center mt-4">
+                    <!-- <div class="recap-footer text-center mt-4">
                         <h5>Signatures</h5>
                         <div class="signatures d-flex justify-content-around mt-3">
                             <div>
@@ -290,7 +309,7 @@ include 'headers/header_formulaire_demande_decaissement.php';
                                 <div class="signature"></div>
                             </div>
                         </div>
-                    </div>
+                    </div> -->
                 </div>
 
                 <div class="d-flex justify-content-between mt-4">
