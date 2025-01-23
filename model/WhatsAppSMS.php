@@ -175,4 +175,27 @@ class WhatsAppSMS
             return false;
         }
     }
+
+    public function sendConfirmationEnvoieDemandeDecaissement($to, $id_demande)
+    {
+        try {
+            // Envoi du message avec le template "confirmation_envoie_demande_decaissement"
+            $whatsappMessage = $this->client->messages->create(
+                "whatsapp:$to",
+                [
+                    "from" => $this->from,
+                    "contentSid" => "HX5a48858e0a0bcda2d91c1d17ebf4ecd9", // SID du template
+                    "contentVariables" => json_encode([
+                        "1" => $id_demande // Variable dynamique pour le template
+                    ])
+                ]
+            );
+
+            error_log("Message WhatsApp avec template confirmation_envoie_demande_decaissement SID: " . $whatsappMessage->sid);
+            return $whatsappMessage;
+        } catch (Exception $e) {
+            error_log("Erreur lors de l'envoi du message confirmation_envoie_demande_decaissement: " . $e->getMessage());
+            return null;
+        }
+    }
 }

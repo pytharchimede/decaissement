@@ -3,6 +3,7 @@ session_start();
 require_once '../model/Fiche.php';
 require_once '../model/EmailManager.php';
 require_once '../model/Database.php';
+require_once '../model/WhatsAppSMS.php';
 
 $dataBaseObj = new Database();
 $pdo = $dataBaseObj->getConnection();
@@ -10,6 +11,13 @@ $pdo = $dataBaseObj->getConnection();
 // Initialisation
 $ficheObj = new Fiche($pdo);
 $emailManagerObj = new EmailManager();
+
+// Envoi notification whatsapp
+$sid = "ACded19f6cd55b2ba3d18c13f438f1e878"; // Votre SID Twilio
+$token = "fea6684286c6b923e8ce0ce19bc48cb4"; // Remplacez par votre AuthToken
+$from = "whatsapp:+2250711048002"; // Numéro WhatsApp Twilio
+
+$whatsapp = new WhatsAppSMS($sid, $token, $from);
 
 
 // Dossiers pour les fichiers
@@ -115,6 +123,12 @@ if ($ficheObj->insertFiche($data)) {
 
     // Envoyer l'email
     $emailManagerObj->sendEmail($subject, $body, $recipients);
+
+    $whatsappNumber = "+225" . $data['tel_beneficiaire_fiche'];
+    $num_fiche = $data['num_fiche'];
+
+    $whatsapp->sendConfirmationEnvoieDemandeDecaissement($whatsappNumber, $data['num_fiche']);
+
 
     // Retourner un message de succès
     echo json_encode(["status" => "success", "message" => "Fiche insérée avec succès."]);

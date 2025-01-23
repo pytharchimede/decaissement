@@ -1,12 +1,12 @@
 <?php
 session_start();
 
-if (!isset($_SESSION['code_autorisation_feb']) || $_SESSION['code_autorisation_feb'] == '') {
+// if (!isset($_SESSION['code_autorisation_feb']) || $_SESSION['code_autorisation_feb'] == '') {
 
-    header('Location: https://fidest.ci/performance/demande_decaissement.php');
+//     header('Location: https://fidest.ci/performance/demande_decaissement.php');
 
-    exit();
-}
+//     exit();
+// }
 
 include 'model/Database.php';
 include 'model/Affectation.php';
@@ -27,17 +27,17 @@ $listeChantier = $chantierObj->getAllChantiers();
 $listeService = $serviceObj->getAllServices();
 
 
-$exist = $ficheObj->getByAuthCode($_SESSION['code_autorisation_feb']);
+// $exist = $ficheObj->getByAuthCode($_SESSION['code_autorisation_feb']);
 
-$nbExist = count($exist);
+// $nbExist = count($exist);
 
 
 
-if ($nbExist > 0) {
+// if ($nbExist > 0) {
 
-    unset($_SESSION['code_autorisation_feb']);
+//     unset($_SESSION['code_autorisation_feb']);
 
-    header('Location: ../performance/code_deja_utilise.php');
+//     header('Location: ../performance/code_deja_utilise.php');
 
-    exit();
-}
+//     exit();
+// }

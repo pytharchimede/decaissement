@@ -17,7 +17,7 @@ include 'headers/header_formulaire_demande_decaissement.php';
 
 <body>
     <div class="container mt-5">
-        <h1 class="text-center mb-4">Formulaire Fiche</h1>
+        <h1 class="text-center mb-4">Formulaire de décaissement</h1>
 
         <div class="progress mb-4">
             <div class="progress-bar" role="progressbar" style="width: 20%;" id="progress-bar">Étape 1 sur 5</div>
@@ -66,9 +66,11 @@ include 'headers/header_formulaire_demande_decaissement.php';
                     <label for="nom_prenom" class="form-label control-label">Nom et Prénom(s)</label>
                     <input type="text" class="form-control" id="nom_prenom" name="nom_prenom" placeholder="Nom et Prénom(s)" required>
                 </div>
+
                 <div class="mb-3">
                     <label for="telephone" class="form-label control-label">Numéro de téléphone</label>
-                    <input type="text" class="form-control" id="telephone" name="telephone" placeholder="Numéro de téléphone" required>
+                    <input type="text" class="form-control" id="telephone" name="telephone" placeholder="Numéro de téléphone" required oninput="validatePhoneNumber()" pattern="^\d{10}$" title="Le numéro doit contenir exactement 10 chiffres">
+                    <div id="error-message" style="color: red; display: none;">Veuillez entrer un numéro de téléphone valide (exactement 10 chiffres).</div>
                 </div>
                 <div class="d-flex justify-content-between mt-4">
                     <button type="button" class="btn btn-primary prevBtn" data-target="#step-0">

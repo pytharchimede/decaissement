@@ -282,35 +282,97 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
   //Script recap
+  // Fonction pour mettre à jour le récapitulatif à chaque changement dans le formulaire
+  const updateRecap = () => {
+    // Récupérer les valeurs des champs du formulaire
+    const nomPrenom = document.getElementById("nom_prenom").value;
+    const telephone = document.getElementById("telephone").value;
+    const affectation = document.getElementById("affectation").value;
+    const motif =
+      document.getElementById("motif_select").value ||
+      document.getElementById("motif_input").value;
+    const details = document.getElementById("details_demande").value;
+    const montant = document.getElementById("montant").value;
+    const modePaiement = document.getElementById("mode_paiement").value;
 
-  // Script pour remplir automatiquement les données dans la fiche récapitulative
-  document.addEventListener("DOMContentLoaded", function () {
-    // Exemple de données, à remplacer par des données dynamiques
-    const formData = {
-      nomPrenom: "John Doe",
-      telephone: "+225 01 23 45 67 89",
-      affectation: "Chantier",
-      motif: "Avance sur salaire",
-      details: "Achat urgent",
-      montant: "100 000 FCFA",
-      modePaiement: "Orange Money",
-      photo: "path/to/photo.jpg",
-      cni: "path/to/cni.jpg",
-    };
-
-    // Mise à jour des champs dans la fiche récapitulative
+    // Mettre à jour le récapitulatif avec les données du formulaire
     document.getElementById("recap-nom-prenom").textContent =
-      formData.nomPrenom;
-    document.getElementById("recap-telephone").textContent = formData.telephone;
+      nomPrenom || "Non renseigné";
+    document.getElementById("recap-telephone").textContent =
+      telephone || "Non renseigné";
     document.getElementById("recap-affectation").textContent =
-      formData.affectation;
-    document.getElementById("recap-motif").textContent = formData.motif;
-    document.getElementById("recap-details").textContent = formData.details;
-    document.getElementById("recap-montant").textContent = formData.montant;
-    document.getElementById("recap-mode").textContent = formData.modePaiement;
+      affectation || "Non renseigné";
+    document.getElementById("recap-motif").textContent =
+      motif || "Non renseigné";
+    document.getElementById("recap-details").textContent =
+      details || "Non renseigné";
+    document.getElementById("recap-montant").textContent = montant
+      ? `${montant} FCFA`
+      : "Non renseigné";
+    document.getElementById("recap-mode").textContent =
+      modePaiement || "Non renseigné";
 
-    // Mise à jour des images
-    document.getElementById("photo-identite").src = formData.photo;
-    document.getElementById("cni-image").src = formData.cni;
-  });
+    // Mettre à jour les images (si des fichiers sont chargés)
+    const photoFile = document.getElementById("photo_demandeur").files[0];
+    const cniFile = document.getElementById("cni_demandeur").files[0];
+
+    if (photoFile) {
+      document.getElementById("photo-identite").src =
+        URL.createObjectURL(photoFile);
+    } else {
+      document.getElementById("photo-identite").src =
+        "https://assets.codeur.com/uli89xy5439jz7s5ud67n92qi9g8"; // Image par défaut si pas de photo
+    }
+
+    if (cniFile) {
+      document.getElementById("cni-image").src = URL.createObjectURL(cniFile);
+    } else {
+      document.getElementById("cni-image").src =
+        "https://app.fidest.ci/logi/img/logo_connex.png"; // Image par défaut si pas de CNI
+    }
+  };
+
+  // Ajouter des écouteurs d'événements pour mettre à jour le récapitulatif à chaque modification
+  document.getElementById("nom_prenom").addEventListener("input", updateRecap);
+  document.getElementById("telephone").addEventListener("input", updateRecap);
+  document
+    .getElementById("affectation")
+    .addEventListener("change", updateRecap);
+  document
+    .getElementById("motif_select")
+    .addEventListener("change", updateRecap);
+  document.getElementById("motif_input").addEventListener("input", updateRecap);
+  document
+    .getElementById("details_demande")
+    .addEventListener("input", updateRecap);
+  document.getElementById("montant").addEventListener("input", updateRecap);
+  document
+    .getElementById("mode_paiement")
+    .addEventListener("change", updateRecap);
+
+  // Ajouter un événement pour les fichiers photo et CNI
+  document
+    .getElementById("photo_demandeur")
+    .addEventListener("change", updateRecap);
+  document
+    .getElementById("cni_demandeur")
+    .addEventListener("change", updateRecap);
+
+  // Initialiser le récapitulatif dès que la page est chargée
+  updateRecap();
 });
+
+function validatePhoneNumber() {
+  const phoneInput = document.getElementById("telephone");
+  const errorMessage = document.getElementById("error-message");
+
+  // Vérifie si la valeur contient exactement 10 chiffres
+  const phoneValue = phoneInput.value;
+  const regex = /^\d{10}$/;
+
+  if (!regex.test(phoneValue)) {
+    errorMessage.style.display = "block";
+  } else {
+    errorMessage.style.display = "none";
+  }
+}
