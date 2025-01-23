@@ -70,6 +70,7 @@ $data = [
     'precision_fiche' => $_POST['details_demande'],
     'serv_bureau_banamur_id' => $_POST['service'],
     'code_autorisation_feb' => isset($_SESSION['code_autorisation_feb']) ? $_SESSION['code_autorisation_feb'] : '',
+    'entreprise' => isset($_SESSION['companyName']) ? $_SESSION['companyName'] : '',
 ];
 
 

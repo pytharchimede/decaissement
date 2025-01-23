@@ -218,6 +218,40 @@ document.addEventListener("DOMContentLoaded", function () {
   setupDropArea("photo-drop-area", "photo_demandeur", "photo-preview");
   setupDropArea("cni-drop-area", "cni_demandeur", "cni-preview");
 
+  //Gestion de la selection d'entreprise
+  document.querySelectorAll(".company-card").forEach((card) => {
+    card.addEventListener("click", (event) => {
+      const companyName = event.currentTarget.dataset.company;
+      // console.log("Selection de la compagnie " + companyName);
+
+      // Appel AJAX
+      $.ajax({
+        url: "request/define_company.php", // URL du script serveur
+        type: "POST", // Méthode HTTP
+        data: "companyName=" + companyName, // Données à envoyer
+        success: function (response) {
+          // Parse la réponse si ce n'est pas déjà un objet JSON
+          if (typeof response === "string") {
+            response = JSON.parse(response);
+          }
+          // Vérifie le statut de la réponse
+          if (response.status === "success") {
+            console.log(response.message); // Affiche un message de succès
+          } else {
+            console.log(
+              response.message || "Une erreur est survenue. Veuillez réessayer."
+            );
+          }
+        },
+        error: function (xhr, status, error) {
+          // Gestion des erreurs
+          console.error("Erreur:", error);
+          console.log("Erreur lors de l'envoi de la requete.");
+        },
+      });
+    });
+  });
+
   // Gestion de la soumission du formulaire
   document
     .getElementById("form_fiche")
