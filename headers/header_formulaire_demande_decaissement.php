@@ -23,6 +23,8 @@ $ficheObj = new Fiche($pdo);
 $listeAffectation = $affectationObj->getAllAffectations();
 $listeService = $serviceObj->getAllServices();
 
+$_SESSION['code_autorisation_feb'] = isset($_SESSION['code_autorisation_feb']) ? $_SESSION['code_autorisation_feb'] : 'Pas autorise';
+
 // $exist = $ficheObj->getByAuthCode($_SESSION['code_autorisation_feb']);
 
 // $nbExist = count($exist);

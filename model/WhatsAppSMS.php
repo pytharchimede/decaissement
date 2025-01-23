@@ -176,25 +176,26 @@ class WhatsAppSMS
         }
     }
 
-    public function sendConfirmationEnvoieDemandeDecaissement($to, $id_demande)
+    public function sendConfirmationSoumissionFicheDecaissement($to, $nom_personnel, $id_demande)
     {
         try {
-            // Envoi du message avec le template "confirmation_envoie_demande_decaissement"
+            // Envoi du message avec le template "confirm_soumission_fiche_decaissement"
             $whatsappMessage = $this->client->messages->create(
                 "whatsapp:$to",
                 [
                     "from" => $this->from,
-                    "contentSid" => "HX5a48858e0a0bcda2d91c1d17ebf4ecd9", // SID du template
+                    "contentSid" => "HX8d84a9d2b5b6e173bc13150aa35bd0e1", // SID du template
                     "contentVariables" => json_encode([
-                        "1" => $id_demande // Variable dynamique pour le template
+                        "1" => $nom_personnel, // Remplace {{1}} par le nom du personnel
+                        "2" => $id_demande      // Remplace {{2}} par l'identifiant de la demande
                     ])
                 ]
             );
 
-            error_log("Message WhatsApp avec template confirmation_envoie_demande_decaissement SID: " . $whatsappMessage->sid);
+            error_log("Message WhatsApp avec template confirm_soumission_fiche_decaissement SID: " . $whatsappMessage->sid);
             return $whatsappMessage;
         } catch (Exception $e) {
-            error_log("Erreur lors de l'envoi du message confirmation_envoie_demande_decaissement: " . $e->getMessage());
+            error_log("Erreur lors de l'envoi du message confirm_soumission_fiche_decaissement: " . $e->getMessage());
             return null;
         }
     }

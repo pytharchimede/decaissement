@@ -124,7 +124,7 @@ if ($ficheObj->insertFiche($data)) {
     $whatsappNumber = "+225" . $data['tel_beneficiaire_fiche'];
     $num_fiche = $data['num_fiche'];
 
-    $whatsapp->sendConfirmationEnvoieDemandeDecaissement($whatsappNumber, $data['num_fiche']);
+    $whatsapp->sendConfirmationSoumissionFicheDecaissement($whatsappNumber, $data['beficiaire_fiche'], $data['num_fiche']);
 
 
     // Retourner un message de succès
