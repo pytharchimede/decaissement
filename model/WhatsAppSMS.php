@@ -199,4 +199,62 @@ class WhatsAppSMS
             return null;
         }
     }
+
+    public function sendDailyExpenseReport($recipientNumber, $recipientName)
+    {
+        try {
+            $message = $this->client->messages->create(
+                "whatsapp:$recipientNumber",
+                [
+                    "from" => "whatsapp:{$this->from}",
+                    "body" => "Bonsoir $recipientName, votre rapport de décaissements journalier est prêt à être consulté.",
+                    "persistentAction" => ["https://fidest.ci/logi/gestion_cron/exportation/pdf/gen_point.php"]
+                ]
+            );
+
+            return [
+                'status' => 'success',
+                'messageSid' => $message->sid,
+                'message' => 'Message sent successfully!'
+            ];
+        } catch (\Exception $e) {
+            return [
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Envoie un message WhatsApp en utilisant le template "confirm_decaissement"
+     *
+     * @param string $to Numéro de téléphone du destinataire (format international)
+     * @param string $nom_personnel Nom du personnel ({{1}})
+     * @param string $num_fiche Numéro de la fiche ({{2}})
+     * @param string $motif Décaissement/motif ({{3}})
+     * @return mixed ID du message ou false en cas d'erreur
+     */
+    public function sendConfirmationDecaissement($to, $nom_personnel, $num_fiche, $motif)
+    {
+        try {
+            $message = $this->client->messages->create(
+                "whatsapp:$to",
+                [
+                    "from" => $this->from,
+                    "contentSid" => "HX96cba150c794b21e5bdd8becf2f94fee", // SID du template
+                    "contentVariables" => json_encode([
+                        "1" => $nom_personnel,
+                        "2" => $num_fiche,
+                        "3" => $motif
+                    ])
+                ]
+            );
+
+            error_log("Message WhatsApp envoyé avec succès, SID: " . $message->sid);
+            return $message->sid;
+        } catch (\Exception $e) {
+            error_log("Erreur lors de l'envoi du message: " . $e->getMessage());
+            return false;
+        }
+    }
 }
