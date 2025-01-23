@@ -10,22 +10,18 @@ session_start();
 
 include 'model/Database.php';
 include 'model/Affectation.php';
-include 'model/Chantier.php';
 include 'model/Service.php';
 include 'model/Fiche.php';
 
 $dataBaseObj = new Database();
 $pdo = $dataBaseObj->getConnection();
 
-$chantierObj = new Chantier($pdo);
 $affectationObj = new Affectation($pdo);
 $serviceObj = new Service($pdo);
 $ficheObj = new Fiche($pdo);
 
 $listeAffectation = $affectationObj->getAllAffectations();
-$listeChantier = $chantierObj->getAllChantiers();
 $listeService = $serviceObj->getAllServices();
-
 
 // $exist = $ficheObj->getByAuthCode($_SESSION['code_autorisation_feb']);
 

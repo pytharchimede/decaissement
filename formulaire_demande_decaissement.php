@@ -47,6 +47,7 @@ include 'headers/header_formulaire_demande_decaissement.php';
                         <div class="company-name">BANAMUR</div>
                     </div>
                 </div>
+
             </div>
 
             <!-- Étape 1 : Informations personnelles -->
@@ -108,9 +109,6 @@ include 'headers/header_formulaire_demande_decaissement.php';
                     <label for="chantier" class="form-label control-label">Code Chantier</label>
                     <select class="form-control" id="chantier" name="chantier" required>
                         <option value="">--Choisir Chantier--</option>
-                        <?php foreach ($listeChantier as $chantier) { ?>
-                            <option value="<?php echo $chantier['id_chantier'] ?>"><?php echo $chantier['num_chantier'] ?></option>
-                        <?php } ?>
                     </select>
                 </div>
                 <div class="mb-3" id="bureau-select" style="display:none;">

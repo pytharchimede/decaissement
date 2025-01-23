@@ -33,6 +33,17 @@ class Chantier
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    // Lire tous les chantiers de l'entreprise selectionnée
+    public function getAllChantiersByEntreprise($entreprise)
+    {
+        $sql = "SELECT * FROM chantier WHERE entreprise = :entreprise AND num_chantier != '' ";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindParam(':entreprise', $entreprise, PDO::PARAM_STR);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+
     // Lire un chantier par ID
     public function getChantierById($id_chantier)
     {

@@ -57,6 +57,58 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 
+  //Chargement de la liste des chantiers en fonction de l'entreprise choisie
+  document.querySelectorAll(".company-card").forEach((card) => {
+    card.addEventListener("click", function () {
+      // Récupérer l'identifiant ou le nom de l'entreprise
+      const entreprise = this.getAttribute("data-company");
+
+      // Afficher le loader ou indiquer le chargement (optionnel)
+      const chantierSelect = document.getElementById("chantier-select");
+      chantierSelect.style.display = "block";
+      const chantierDropdown = document.getElementById("chantier");
+      chantierDropdown.innerHTML = '<option value="">Chargement...</option>';
+
+      console.log("entreprise choisie " + entreprise);
+
+      // Envoyer la requête à charge_chantier.php
+      fetch("request/charge_chantier.php", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: `entreprise=${encodeURIComponent(entreprise)}`,
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          // Réinitialiser les options du dropdown
+          chantierDropdown.innerHTML =
+            '<option value="">--Choisir Chantier--</option>';
+
+          // Ajouter les chantiers retournés
+          if (data.length > 0) {
+            data.forEach((chantier) => {
+              const option = document.createElement("option");
+              option.value = chantier.id_chantier;
+              option.textContent = chantier.num_chantier;
+              chantierDropdown.appendChild(option);
+            });
+          } else {
+            // Message si aucun chantier trouvé
+            const option = document.createElement("option");
+            option.value = "";
+            option.textContent = "Aucun chantier trouvé";
+            chantierDropdown.appendChild(option);
+          }
+        })
+        .catch((error) => {
+          console.error("Erreur lors du chargement des chantiers :", error);
+          chantierDropdown.innerHTML =
+            '<option value="">Erreur lors du chargement</option>';
+        });
+    });
+  });
+
   document.getElementById("motif-input").style.display = "none";
   document.getElementById("motif_input").setAttribute("disabled", "disabled");
   document.getElementById("motif-select").style.display = "none";
