@@ -41,7 +41,7 @@ if (isset($_FILES['photo_demandeur']['name']) && $_FILES['photo_demandeur']['err
     if (move_uploaded_file($_FILES['photo_demandeur']['tmp_name'], $photoPath)) {
         $data['photo_beneficiaire'] = $photoNewName;
     } else {
-        $data['photo_beneficiaire'] = null;
+        $data['photo_beneficiaire'] = '';
     }
 }
 
@@ -54,7 +54,7 @@ if (isset($_FILES['cni_demandeur']['name']) && $_FILES['cni_demandeur']['error']
     if (move_uploaded_file($_FILES['cni_demandeur']['tmp_name'], $cniPath)) {
         $data['cni_beneficiaire'] = $cniNewName;
     } else {
-        $data['cni_beneficiaire'] = null;
+        $data['cni_beneficiaire'] = '';
     }
 }
 
@@ -115,9 +115,9 @@ if ($_POST['affectation'] == "19") {
 // Insérer la fiche
 if ($ficheObj->insertFiche($data)) {
     $subject = "Nouvelle fiche créée";
-    $body = "<b>{$data['beficiaire_fiche']}</b> a émis une demande...";
+    $body = "<b>{$data['beficiaire_fiche']}</b> a émis une demande de <b>{$data['montant_fiche']}</b> pour <b>{$data['precision_fiche']}</b>";
     $recipients = [
-        "amichia@fidest.org" => "Amichia KANE",
+        "braud@fidest.org" => "Alex BRAUD",
         "amani_ulrich@outlook.fr" => "Ulrich AMANI"
     ];
 
@@ -131,7 +131,7 @@ if ($ficheObj->insertFiche($data)) {
 
 
     // Retourner un message de succès
-    echo json_encode(["status" => "success", "message" => "Fiche insérée avec succès."]);
+    echo json_encode(["status" => "success", "message" => "Fiche inseree avec succes."]);
 } else {
     // Retourner un message d'erreur si l'insertion échoue
     echo json_encode(["status" => "error", "message" => "Une erreur est survenue lors de l'insertion."]);

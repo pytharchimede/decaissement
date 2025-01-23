@@ -31,8 +31,6 @@ $listeService = $serviceObj->getAllServices();
 
 // $nbExist = count($exist);
 
-
-
 // if ($nbExist > 0) {
 
 //     unset($_SESSION['code_autorisation_feb']);

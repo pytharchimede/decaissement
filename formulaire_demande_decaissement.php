@@ -288,7 +288,7 @@ include 'headers/header_formulaire_demande_decaissement.php';
                     <button type="button" class="btn btn-primary prevBtn" data-target="#step-4">
                         <i class="fas fa-arrow-left"></i> Précédent
                     </button>
-                    <button type="submit" class="btn btn-success">
+                    <button type="submit" id="submit-button" class="btn btn-success">
                         Soumettre <i class="fas fa-check"></i>
                     </button>
                 </div>

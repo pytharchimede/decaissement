@@ -252,7 +252,7 @@ document.addEventListener("DOMContentLoaded", function () {
           if (response.success) {
             console.log(result.message); // Afficher un message de succès
 
-            console.log("Demande soumise avec succès !");
+            console.log("Demande soumise avec succes !");
             // Réinitialise le formulaire après succès
             document.getElementById("form_fiche").reset();
             $("#photo-preview").html(""); // Efface l'aperçu de la photo
