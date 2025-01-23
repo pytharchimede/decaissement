@@ -65,7 +65,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       // Afficher le loader ou indiquer le chargement (optionnel)
       const chantierSelect = document.getElementById("chantier-select");
-      chantierSelect.style.display = "block";
+      // chantierSelect.style.display = "block";
       const chantierDropdown = document.getElementById("chantier");
       chantierDropdown.innerHTML = '<option value="">Chargement...</option>';
 
@@ -97,7 +97,8 @@ document.addEventListener("DOMContentLoaded", function () {
             // Message si aucun chantier trouvé
             const option = document.createElement("option");
             option.value = "";
-            option.textContent = "Aucun chantier trouvé";
+            option.textContent =
+              "Aucun chantier trouvé pour l'entreprise " + entreprise;
             chantierDropdown.appendChild(option);
           }
         })
@@ -113,6 +114,7 @@ document.addEventListener("DOMContentLoaded", function () {
   document.getElementById("motif_input").setAttribute("disabled", "disabled");
   document.getElementById("motif-select").style.display = "none";
   document.getElementById("motif_select").setAttribute("disabled", "disabled");
+  document.getElementById("chantier-select").style.display = "none";
 
   // Gestion du champ d'affectation
   document
@@ -138,6 +140,7 @@ document.addEventListener("DOMContentLoaded", function () {
         document.getElementById("motif-select").style.display = "block";
         document.getElementById("motif-input").style.display = "none";
         document.getElementById("motif-input").value = ""; // Réinitialise l'input
+        document.getElementById("chantier-select").style.display = "block";
       } else if (affectation === "19") {
         console.log("Affectation  = Bureau");
         document
@@ -150,6 +153,11 @@ document.addEventListener("DOMContentLoaded", function () {
         document.getElementById("motif-select").style.display = "none";
         document.getElementById("motif-input").style.display = "block";
         document.getElementById("motif-select").value = ""; // Réinitialise le select
+        document.getElementById("chantier-select").style.display = "none";
+      } else {
+        document.getElementById("motif-select").style.display = "none";
+        document.getElementById("motif-input").style.display = "none";
+        document.getElementById("chantier-select").style.display = "none";
       }
     });
 
@@ -448,18 +456,3 @@ document.addEventListener("DOMContentLoaded", function () {
   // Initialiser le récapitulatif dès que la page est chargée
   updateRecap();
 });
-
-function validatePhoneNumber() {
-  const phoneInput = document.getElementById("telephone");
-  const errorMessage = document.getElementById("error-message");
-
-  // Vérifie si la valeur contient exactement 10 chiffres
-  const phoneValue = phoneInput.value;
-  const regex = /^\d{10}$/;
-
-  if (!regex.test(phoneValue)) {
-    errorMessage.style.display = "block";
-  } else {
-    errorMessage.style.display = "none";
-  }
-}

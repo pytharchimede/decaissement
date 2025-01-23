@@ -65,19 +65,22 @@ include 'headers/header_formulaire_demande_decaissement.php';
 
                 <div class="mb-3">
                     <label for="nom_prenom" class="form-label control-label">Nom et Prénom(s)</label>
-                    <input type="text" class="form-control" id="nom_prenom" name="nom_prenom" placeholder="Nom et Prénom(s)" required>
+                    <input type="text" class="form-control" id="nom_prenom" name="nom_prenom" placeholder="Nom et Prénom(s)" oninput="validateName()" onchange="validateName()" pattern="^[a-zA-Z0-9]{3,}$" title="Le nom doit contenir au moins 3 caractères." required>
+                    <div id="name-error-message" style="color: red; display: none; margin : 4px;">Le nom doit contenir au moins 3 caractères.</div>
+                    <div id="name-succes-message" style="color: green; display: none; margin : 4px;"><i class="fa fa-check-circle"></i> Parfait !</div>
                 </div>
 
                 <div class="mb-3">
                     <label for="telephone" class="form-label control-label">Numéro de téléphone</label>
                     <input type="text" class="form-control" id="telephone" name="telephone" placeholder="Numéro de téléphone" required oninput="validatePhoneNumber()" pattern="^\d{10}$" title="Le numéro doit contenir exactement 10 chiffres">
-                    <div id="error-message" style="color: red; display: none;">Veuillez entrer un numéro de téléphone valide (exactement 10 chiffres).</div>
+                    <div id="tel-error-message" style="color: red; display: none; margin : 4px;">Veuillez entrer un numéro de téléphone valide (exactement 10 chiffres).</div>
+                    <div id="tel-succes-message" style="color: green; display: none; margin : 4px;"><i class="fa fa-check-circle"></i> Parfait !</div>
                 </div>
                 <div class="d-flex justify-content-between mt-4">
                     <button type="button" class="btn btn-primary prevBtn" data-target="#step-0">
                         <i class="fas fa-arrow-left"></i> Précédent
                     </button>
-                    <button type="button" class="btn btn-primary nextBtn" data-target="#step-2">
+                    <button id="first_next_button" type="button" class="btn btn-primary nextBtn" data-target="#step-2">
                         Suivant <i class="fas fa-arrow-right"></i>
                     </button>
                 </div>
@@ -104,6 +107,8 @@ include 'headers/header_formulaire_demande_decaissement.php';
                             <option value="<?php echo $affectation['id_affectation'] ?>"><?php echo $affectation['lib_affectation'] ?></option>
                         <?php } ?>
                     </select>
+                    <div id="affectation-error-message" style="color: red; display: none; margin : 4px;">Veuillez sélectionner au moins une affectation.</div>
+                    <div id="affectation-succes-message" style="color: green; display: none; margin : 4px;"><i class="fa fa-check-circle"></i> Parfait !</div>
                 </div>
                 <div class="mb-3" id="chantier-select" style="display:none;">
                     <label for="chantier" class="form-label control-label">Code Chantier</label>
@@ -137,7 +142,7 @@ include 'headers/header_formulaire_demande_decaissement.php';
                     <button type="button" class="btn btn-primary prevBtn" data-target="#step-1">
                         <i class="fas fa-arrow-left"></i> Précédent
                     </button>
-                    <button type="button" class="btn btn-primary nextBtn" data-target="#step-3">
+                    <button id="first_next_button_2" type="button" class="btn btn-primary nextBtn" data-target="#step-3">
                         Suivant <i class="fas fa-arrow-right"></i>
                     </button>
                 </div>
@@ -158,7 +163,9 @@ include 'headers/header_formulaire_demande_decaissement.php';
 
                 <div class="mb-3">
                     <label for="montant" class="form-label control-label">Montant</label>
-                    <input type="number" class="form-control" id="montant" name="montant" placeholder="Montant" required>
+                    <input type="number" class="form-control" id="montant" name="montant" placeholder="Montant" oninput="validateMontant()" pattern="^[1-9]\d*$" title="Veuillez saisir un montant en FCFA." required>
+                    <div id="montant-error-message" style="color: red; display: none; margin : 4px;">Veuillez saisir un montant en FCFA.</div>
+                    <div id="montant-succes-message" style="color: green; display: none; margin : 4px;"><i class="fa fa-check-circle"></i> Parfait !</div>
                 </div>
                 <div class="mb-3">
                     <label for="mode_paiement" class="control-label">Mode de paiement</label>
@@ -177,7 +184,7 @@ include 'headers/header_formulaire_demande_decaissement.php';
                     <button type="button" class="btn btn-primary prevBtn" data-target="#step-2">
                         <i class="fas fa-arrow-left"></i> Précédent
                     </button>
-                    <button type="button" class="btn btn-primary nextBtn" data-target="#step-4">
+                    <button id="first_next_button_3" type="button" class="btn btn-primary nextBtn" data-target="#step-4">
                         Suivant <i class="fas fa-arrow-right"></i>
                     </button>
                 </div>
@@ -203,6 +210,8 @@ include 'headers/header_formulaire_demande_decaissement.php';
                         <p>Faites glisser ou sélectionnez une photo</p>
                         <p>Formats autorisés : jpg, png, jpeg</p>
                     </div>
+                    <div id="photo_demandeur-error-message" style="color: red; display: none; margin : 4px;">Veuillez uploader votre photo.</div>
+                    <div id="photo_demandeur-succes-message" style="color: green; display: none; margin : 4px;"><i class="fa fa-check-circle"></i> Parfait !</div>
                     <div class="file-preview" id="photo-preview"></div>
                 </div>
                 <div class="mb-3">
@@ -212,13 +221,15 @@ include 'headers/header_formulaire_demande_decaissement.php';
                         <p>Faites glisser ou sélectionnez une image de votre CNI</p>
                         <p>Formats autorisés : jpg, png, jpeg</p>
                     </div>
+                    <div id="cni_demandeur-error-message" style="color: red; display: none; margin : 4px;">Veuillez uploader votre CNI.</div>
+                    <div id="cni_demandeur-succes-message" style="color: green; display: none; margin : 4px;"><i class="fa fa-check-circle"></i> Parfait !</div>
                     <div class="file-preview" id="cni-preview"></div>
                 </div>
                 <div class="d-flex justify-content-between mt-4">
                     <button type="button" class="btn btn-primary prevBtn" data-target="#step-3">
                         <i class="fas fa-arrow-left"></i> Précédent
                     </button>
-                    <button type="button" class="btn btn-primary nextBtn" data-target="#step-5">
+                    <button id="first_next_button_4" type="button" class="btn btn-primary nextBtn" data-target="#step-5">
                         Suivant <i class="fas fa-arrow-right"></i>
                     </button>
                 </div>
@@ -299,6 +310,7 @@ include 'headers/header_formulaire_demande_decaissement.php';
     <script src="plugins/js/bootstrap/bootstrap.min.js"></script>
     <script src="plugins/js/jquery/jquery-3.6.0.min.js"></script>
     <script src="plugins/js/fontawesome/all.min.js"></script>
+    <script src="js_form/form_control.js"></script>
     <script src="js_form/script.js"></script>
 </body>
 
