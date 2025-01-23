@@ -35,7 +35,7 @@ if (!is_dir($cniDir)) {
 // Vérification et gestion de la photo du bénéficiaire
 if (isset($_FILES['photo_demandeur']['name']) && $_FILES['photo_demandeur']['error'] == UPLOAD_ERR_OK) {
     $photoExtension = pathinfo($_FILES['photo_demandeur']['name'], PATHINFO_EXTENSION);
-    $photoNewName = uniqid('photo_') . '.' . $photoExtension;
+    $photoNewName = "photo_" . time() . "." . $photoExtension;
     $photoPath = $photoDir . $photoNewName;
 
     if (move_uploaded_file($_FILES['photo_demandeur']['tmp_name'], $photoPath)) {
@@ -48,7 +48,7 @@ if (isset($_FILES['photo_demandeur']['name']) && $_FILES['photo_demandeur']['err
 // Vérification et gestion de la CNI du bénéficiaire
 if (isset($_FILES['cni_demandeur']['name']) && $_FILES['cni_demandeur']['error'] == UPLOAD_ERR_OK) {
     $cniExtension = pathinfo($_FILES['cni_demandeur']['name'], PATHINFO_EXTENSION);
-    $cniNewName = uniqid('cni_') . '.' . $cniExtension;
+    $cniNewName = "cni_" . time() . "." . $cniExtension;
     $cniPath = $cniDir . $cniNewName;
 
     if (move_uploaded_file($_FILES['cni_demandeur']['tmp_name'], $cniPath)) {
@@ -77,19 +77,15 @@ $data = [
 $_SESSION['num_fiche'] = $data['num_fiche'];
 
 // Vérification des fichiers
-$data['photo_beneficiaire'] = isset($_FILES['photo_demandeur']['name']) && $_FILES['photo_demandeur']['error'] == UPLOAD_ERR_OK
-    ? $_FILES['photo_demandeur']['name'] : null;
+$data['photo_beneficiaire'] = $photoNewName ? $photoNewName : '';
 
-$data['cni_beneficiaire'] = isset($_FILES['cni_demandeur']['name']) && $_FILES['cni_demandeur']['error'] == UPLOAD_ERR_OK
-    ? $_FILES['cni_demandeur']['name'] : null;
+$data['cni_beneficiaire'] = $cniNewName ? $cniNewName : '';
 
 // Nettoyage des données
 $data = array_map(function ($value) {
     return is_string($value) ? trim($value) : $value;
 }, $data);
 
-// Debug temporaire
-var_dump($data);
 
 // Vérifiez si l'affectation est un chantier (ID = 1)
 if ($_POST['affectation'] == "1") {

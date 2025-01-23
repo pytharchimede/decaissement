@@ -247,12 +247,15 @@ document.addEventListener("DOMContentLoaded", function () {
           $("#submit-button").prop("disabled", true).text("Envoi en cours...");
         },
         success: function (response) {
-          // Traitement de la réponse du serveur
-          console.log(response); // Affiche la réponse dans la console (pour débogage)
-          if (response.success) {
-            console.log(result.message); // Afficher un message de succès
+          // Parse la réponse si ce n'est pas déjà un objet JSON
+          if (typeof response === "string") {
+            response = JSON.parse(response);
+          }
 
-            console.log("Demande soumise avec succes !");
+          // Vérifie le statut de la réponse
+          if (response.status === "success") {
+            console.log(response.message); // Affiche un message de succès
+            console.log("Demande soumise avec succès !");
             // Réinitialise le formulaire après succès
             document.getElementById("form_fiche").reset();
             $("#photo-preview").html(""); // Efface l'aperçu de la photo
@@ -260,8 +263,6 @@ document.addEventListener("DOMContentLoaded", function () {
             // Rediriger vers un autre formulaire après succès
             window.location.href = "../signer_fiche/index.php";
           } else {
-            console.log(result.message); // Afficher un message de succès
-
             alert(
               response.message || "Une erreur est survenue. Veuillez réessayer."
             );
