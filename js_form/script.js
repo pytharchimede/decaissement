@@ -393,17 +393,62 @@ document.addEventListener("DOMContentLoaded", function () {
     // Mettre à jour le récapitulatif avec les données du formulaire
     document.getElementById("recap-nom-prenom").textContent =
       nomPrenom || "Non renseigné";
+
+    //Formatage du numéro de téléphone
+    const formatTelephone = (telephone) => {
+      if (!telephone) return "Non renseigné";
+
+      // Supprimer tous les caractères non numériques
+      const cleanNumber = telephone.replace(/\D/g, "");
+
+      // Vérifier la longueur et formater le numéro
+      if (cleanNumber.length === 10) {
+        return cleanNumber.replace(
+          /(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/,
+          "$1 $2 $3 $4 $5"
+        );
+      } else if (cleanNumber.length === 8) {
+        // Format alternatif (par exemple, pour un numéro sans indicatif)
+        return cleanNumber.replace(
+          /(\d{2})(\d{2})(\d{2})(\d{2})/,
+          "$1 $2 $3 $4"
+        );
+      }
+
+      // Si le numéro est invalide, renvoyer "Non renseigné"
+      return "Non renseigné";
+    };
+
+    // Utilisation dans le script
     document.getElementById("recap-telephone").textContent =
-      telephone || "Non renseigné";
-    document.getElementById("recap-affectation").textContent =
-      affectation || "Non renseigné";
+      formatTelephone(telephone);
+
+    //Pour l'affectation, préciser son libellé
+    let affectationText;
+
+    switch (parseInt(affectation, 10)) {
+      case 1:
+        affectationText = "Chantier";
+        break;
+      case 19:
+        affectationText = "Bureau";
+        break;
+      default:
+        affectationText = "Non renseigné"; // Valeur par défaut si aucune correspondance
+    }
+
+    document.getElementById("recap-affectation").textContent = affectationText;
+    //Fin affectation
     document.getElementById("recap-motif").textContent =
       motif || "Non renseigné";
     document.getElementById("recap-details").textContent =
       details || "Non renseigné";
     document.getElementById("recap-montant").textContent = montant
-      ? `${montant} FCFA`
+      ? `${parseInt(montant, 10)
+          .toLocaleString("fr-FR")
+          .replace(/ /g, "\u00A0")} FCFA`
       : "Non renseigné";
+
     document.getElementById("recap-mode").textContent =
       modePaiement || "Non renseigné";
 
