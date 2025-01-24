@@ -42,7 +42,7 @@ include 'headers/header_formulaire_demande_decaissement.php';
                     <div class="nextBtn company-card" data-target="#step-1" data-company="FIDEST">
                         <div class="company-card-inner">
                             <img src="https://app.fidest.ci/logi/img/logo_connex.png" alt="Logo FIDEST" class="company-logo">
-                            <div class="company-name">FIDEST</div>
+                            <div class="company-name">CHANTIER FIDEST</div>
                         </div>
                     </div>
 
@@ -50,7 +50,7 @@ include 'headers/header_formulaire_demande_decaissement.php';
                     <div class="nextBtn company-card" data-target="#step-1" data-company="BANAMUR">
                         <div class="company-card-inner">
                             <img src="https://assets.codeur.com/uli89xy5439jz7s5ud67n92qi9g8" alt="Logo BANAMUR" class="company-logo">
-                            <div class="company-name">BANAMUR</div>
+                            <div class="company-name">CHANTIER BANAMUR</div>
                         </div>
                     </div>
 
