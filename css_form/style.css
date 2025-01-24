@@ -423,3 +423,68 @@ button.btn:hover {
         margin-bottom: 15px;
     }
 }
+
+
+/*Style mode de paiement*/
+.payment-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.payment-card {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    text-align: center;
+    border: 2px solid #ccc;
+    border-radius: 50%;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.payment-card input {
+    display: none;
+}
+
+.payment-card img {
+    width: 60px;
+    height: 60px;
+    margin: 10px auto;
+    display: block;
+}
+
+.payment-card span {
+    display: block;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 14px;
+    color: #333;
+}
+
+.payment-card label {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+
+.payment-card {
+    border: 2px solid #1d2b57; /* Couleur de la charte pour les modes non sélectionnés */
+    background: white; /* Fond blanc par défaut */
+    color: #1d2b57; /* Texte dans la couleur de la charte */
+    transition: all 0.3s ease;
+}
+
+.payment-card:hover {
+    border-color: #3a4f8f; /* Une teinte légèrement plus claire pour le hover */
+    box-shadow: 0 4px 8px rgba(58, 79, 143, 0.3); /* Ombre dans la couleur de la charte */
+}
+
+.payment-card input:checked + label {
+    border-color: green; /* Vert pour indiquer la sélection */
+    background: green; /* Fond vert très clair pour le contraste */
+    color: #fff; /* Texte vert pour correspondre à la sélection */
+}

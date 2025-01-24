@@ -188,16 +188,64 @@ include 'headers/header_formulaire_demande_decaissement.php';
                 </div>
                 <div class="mb-3">
                     <label for="mode_paiement" class="control-label">Mode de paiement</label>
-                    <select id="mode_paiement" name="mode_paiement" class="form-control" required>
-                        <option value="">--Choisir mode de paiement--</option>
-                        <option value="Orange Money">Orange Money</option>
-                        <option value="MTN Money">MTN Money</option>
-                        <option value="Moov Money">Moov Money</option>
-                        <option value="Wave">Wave</option>
-                        <option value="Cash">Cash</option>
-                        <option value="Djamo">Djamo</option>
-                        <option value="Chèque">Chèque</option>
-                    </select>
+                    <div class="payment-options">
+                        <div class="payment-card">
+                            <input type="radio" id="orange_money" name="mode_paiement" value="Orange Money" required />
+                            <label for="orange_money">
+                                <img src="payment_icon/logo_om.png" alt="Orange Money" />
+                                <span>OM</span>
+                            </label>
+                        </div>
+
+                        <div class="payment-card">
+                            <input type="radio" id="mtn_money" name="mode_paiement" value="MTN Money" required />
+                            <label for="mtn_money">
+                                <img src="payment_icon/logo_momo.png" alt="MTN Money" />
+                                <span>Momo</span>
+                            </label>
+                        </div>
+
+                        <div class="payment-card">
+                            <input type="radio" id="moov_money" name="mode_paiement" value="Moov Money" required />
+                            <label for="moov_money">
+                                <img src="payment_icon/logo_flooz.png" alt="Moov Money" />
+                                <span>Flooz</span>
+                            </label>
+                        </div>
+
+                        <div class="payment-card">
+                            <input type="radio" id="wave" name="mode_paiement" value="Wave" required />
+                            <label for="wave">
+                                <img src="payment_icon/logo_wave.png" alt="Wave" />
+                                <span>Wave</span>
+                            </label>
+                        </div>
+
+                        <div class="payment-card">
+                            <input type="radio" id="cash" name="mode_paiement" value="Cash" required />
+                            <label for="cash">
+                                <img src="payment_icon/logo_cash.png" alt="Cash" />
+                                <span>Cash</span>
+                            </label>
+                        </div>
+
+                        <div class="payment-card">
+                            <input type="radio" id="djamo" name="mode_paiement" value="Djamo" required />
+                            <label for="djamo">
+                                <img src="payment_icon/logo_djamo.png" alt="Djamo" />
+                                <span>Djamo</span>
+                            </label>
+                        </div>
+
+                        <div class="payment-card">
+                            <input type="radio" id="cheque" name="mode_paiement" value="Chèque" required />
+                            <label for="cheque">
+                                <img src="payment_icon/logo_cheque.png" alt="Chèque" />
+                                <span>Chèque</span>
+                            </label>
+                        </div>
+                    </div>
+
                 </div>
                 <div class="d-flex justify-content-between mt-4">
                     <button type="button" class="btn btn-primary prevBtn" data-target="#step-2">

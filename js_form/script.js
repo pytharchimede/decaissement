@@ -5,6 +5,13 @@ document.addEventListener("DOMContentLoaded", function () {
   const totalSteps = steps.length;
   let currentStep = 0;
 
+  //Log choix du mode de paiement
+  document.querySelectorAll('input[name="mode_paiement"]').forEach((radio) => {
+    radio.addEventListener("change", (event) => {
+      console.log("Mode de paiement sélectionné :", event.target.value);
+    });
+  });
+
   // Mise à jour de la barre de progression
   function updateProgressBar() {
     const progressPercentage = ((currentStep + 1) / totalSteps) * 100;
@@ -388,7 +395,11 @@ document.addEventListener("DOMContentLoaded", function () {
       document.getElementById("motif_input").value;
     const details = document.getElementById("details_demande").value;
     const montant = document.getElementById("montant").value;
-    const modePaiement = document.getElementById("mode_paiement").value;
+
+    // Récupérer la valeur du mode de paiement sélectionné
+    const modePaiement =
+      document.querySelector('input[name="mode_paiement"]:checked')?.value ||
+      "Non sélectionné";
 
     // Mettre à jour le récapitulatif avec les données du formulaire
     document.getElementById("recap-nom-prenom").textContent =
@@ -486,9 +497,9 @@ document.addEventListener("DOMContentLoaded", function () {
     .getElementById("details_demande")
     .addEventListener("input", updateRecap);
   document.getElementById("montant").addEventListener("input", updateRecap);
-  document
-    .getElementById("mode_paiement")
-    .addEventListener("change", updateRecap);
+  document.querySelectorAll('input[name="mode_paiement"]').forEach((radio) => {
+    radio.addEventListener("change", updateRecap);
+  });
 
   // Ajouter un événement pour les fichiers photo et CNI
   document
