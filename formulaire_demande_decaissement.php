@@ -217,33 +217,37 @@ include 'headers/header_formulaire_demande_decaissement.php';
                         <i class="fas fa-id-badge fa-3x"></i>
                     </div>
                     <h2 class="enterprise-title text-dark fw-bold">Photo et Pièce d'identité</h2>
-                    <p class="enterprise-description text-muted mt-2">
-                        Justifiez vos données personnelles
-                    </p>
+                    <p class="enterprise-description text-muted mt-2">Justifiez vos données personnelles</p>
                 </div>
 
-                <div class="mb-3">
-                    <label for="photo_demandeur" class="form-label control-label">Photo du demandeur</label>
-                    <div class="file-drop-area" id="photo-drop-area">
-                        <input type="file" id="photo_demandeur" name="photo_demandeur" accept="image/*" style="display:none;">
-                        <p>Faites glisser ou sélectionnez une photo</p>
-                        <p>Formats autorisés : jpg, png, jpeg</p>
+                <div class="row">
+                    <!-- Photo du demandeur -->
+                    <div class="col-md-6 mb-3">
+                        <label for="photo_demandeur" class="form-label control-label">Photo du demandeur</label>
+                        <div class="file-drop-area" id="photo-drop-area">
+                            <input type="file" id="photo_demandeur" name="photo_demandeur" accept="image/*" style="display:none;">
+                            <div class="file-preview" id="photo-preview"></div>
+                            <p>Faites glisser ou sélectionnez une photo</p>
+                            <p>Formats autorisés : jpg, png, jpeg</p>
+                        </div>
+                        <div id="photo_demandeur-error-message" style="color: red; display: none; margin : 4px;">Veuillez uploader votre photo.</div>
+                        <div id="photo_demandeur-succes-message" style="color: green; display: none; margin : 4px;"><i class="fa fa-check-circle"></i> Parfait !</div>
                     </div>
-                    <div id="photo_demandeur-error-message" style="color: red; display: none; margin : 4px;">Veuillez uploader votre photo.</div>
-                    <div id="photo_demandeur-succes-message" style="color: green; display: none; margin : 4px;"><i class="fa fa-check-circle"></i> Parfait !</div>
-                    <div class="file-preview" id="photo-preview"></div>
-                </div>
-                <div class="mb-3">
-                    <label for="cni_demandeur" class="form-label control-label">CNI du demandeur</label>
-                    <div class="file-drop-area" id="cni-drop-area">
-                        <input type="file" id="cni_demandeur" name="cni_demandeur" accept="image/*" style="display:none;">
-                        <p>Faites glisser ou sélectionnez une image de votre CNI</p>
-                        <p>Formats autorisés : jpg, png, jpeg</p>
+
+                    <!-- CNI du demandeur -->
+                    <div class="col-md-6 mb-3">
+                        <label for="cni_demandeur" class="form-label control-label">CNI du demandeur</label>
+                        <div class="file-drop-area" id="cni-drop-area">
+                            <input type="file" id="cni_demandeur" name="cni_demandeur" accept="image/*" style="display:none;">
+                            <div class="file-preview" id="cni-preview"></div>
+                            <p>Faites glisser ou sélectionnez une image de votre CNI</p>
+                            <p>Formats autorisés : jpg, png, jpeg</p>
+                        </div>
+                        <div id="cni_demandeur-error-message" style="color: red; display: none; margin : 4px;">Veuillez uploader votre CNI.</div>
+                        <div id="cni_demandeur-succes-message" style="color: green; display: none; margin : 4px;"><i class="fa fa-check-circle"></i> Parfait !</div>
                     </div>
-                    <div id="cni_demandeur-error-message" style="color: red; display: none; margin : 4px;">Veuillez uploader votre CNI.</div>
-                    <div id="cni_demandeur-succes-message" style="color: green; display: none; margin : 4px;"><i class="fa fa-check-circle"></i> Parfait !</div>
-                    <div class="file-preview" id="cni-preview"></div>
                 </div>
+
                 <div class="d-flex justify-content-between mt-4">
                     <button type="button" class="btn btn-primary prevBtn" data-target="#step-3">
                         <i class="fas fa-arrow-left"></i> Précédent
@@ -252,7 +256,9 @@ include 'headers/header_formulaire_demande_decaissement.php';
                         Suivant <i class="fas fa-arrow-right"></i>
                     </button>
                 </div>
+
             </div>
+
 
             <!-- Étape 6 : Recapitulatif de la demande -->
             <div class="setup-content" id="step-5">

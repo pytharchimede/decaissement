@@ -346,3 +346,80 @@ h2 {
 .company-card:hover {
     animation: pulse 0.8s infinite;
 }
+
+
+/*Design photo et CNI upload*/
+/* Mise en forme des sections et des champs de formulaire */
+.setup-content {
+    padding: 30px;
+    /* background-color: #f8f9fa; */
+    /* border-radius: 10px; */
+    /* box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); */
+}
+
+/* Conteneur de photo et CNI côte à côte */
+.row {
+    display: flex;
+    justify-content: space-between;
+}
+
+/* Style des champs de téléchargement */
+.file-drop-area {
+    border: 2px dashed #007bff;
+    padding: 20px;
+    text-align: center;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.file-drop-area:hover {
+    background-color: #e9f7fe;
+    border-color: #0056b3;
+}
+
+.file-preview {
+    margin-top: 10px;
+    text-align: center;
+}
+
+.file-drop-area p {
+    font-size: 14px;
+    color: #888;
+}
+
+/* Messages d'erreur et de succès */
+#photo_demandeur-error-message, #cni_demandeur-error-message {
+    font-size: 12px;
+    color: red;
+    margin-top: 5px;
+}
+
+#photo_demandeur-succes-message, #cni_demandeur-succes-message {
+    font-size: 12px;
+    color: green;
+    margin-top: 5px;
+}
+
+/* Boutons de navigation */
+button.btn {
+    border-radius: 25px;
+    padding: 10px 20px;
+    font-size: 16px;
+}
+
+button.btn:hover {
+    background-color: #0056b3;
+    border-color: #0056b3;
+}
+
+/* Pour un meilleur espacement sur mobile */
+@media (max-width: 768px) {
+    .row {
+        flex-direction: column;
+    }
+
+    .file-drop-area {
+        margin-bottom: 15px;
+    }
+}
