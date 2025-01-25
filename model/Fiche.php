@@ -167,4 +167,55 @@ class Fiche
             return '0001';
         }
     }
+
+    public function approveFicheByNum($num_fiche, $secur_approuve)
+    {
+        try {
+            // Obtenir la date et l'heure actuelles
+            $date_approuve = date('Y-m-d H:i:s'); // Format datetime (YYYY-MM-DD HH:MM:SS)
+
+            // Requête SQL pour mettre à jour les champs approuve, secur_approuve et date_approuve
+            $sql = "UPDATE fiche SET approuve = 1, secur_approuve = :secur_approuve, date_approuve = :date_approuve WHERE num_fiche = :num_fiche";
+
+            // Préparation de la requête
+            $stmt = $this->pdo->prepare($sql);
+
+            // Liaison des paramètres avec les valeurs correspondantes
+            $stmt->bindParam(':num_fiche', $num_fiche, PDO::PARAM_STR);
+            $stmt->bindParam(':secur_approuve', $secur_approuve, PDO::PARAM_STR);
+            $stmt->bindParam(':date_approuve', $date_approuve, PDO::PARAM_STR);
+
+            // Exécution de la requête
+            return $stmt->execute();
+        } catch (Exception $e) {
+            // Retourner le message d'erreur en cas d'exception
+            return 'Erreur : ' . $e->getMessage();
+        }
+    }
+
+
+    public function refuseFicheByNum($num_fiche, $secur_desapprouve)
+    {
+        try {
+            // Obtenir la date et l'heure actuelles
+            $date_desapprouve = date('Y-m-d H:i:s'); // Format datetime (YYYY-MM-DD HH:MM:SS)
+
+            // Requête SQL pour mettre à jour les champs approuve, secur_desapprouve et date_desapprouve
+            $sql = "UPDATE fiche SET approuve = 2, secur_desapprouve = :secur_desapprouve, date_desapprouve = :date_desapprouve WHERE num_fiche = :num_fiche";
+
+            // Préparation de la requête
+            $stmt = $this->pdo->prepare($sql);
+
+            // Liaison des paramètres avec les valeurs correspondantes
+            $stmt->bindParam(':num_fiche', $num_fiche, PDO::PARAM_STR);
+            $stmt->bindParam(':secur_desapprouve', $secur_desapprouve, PDO::PARAM_STR);
+            $stmt->bindParam(':date_desapprouve', $date_desapprouve, PDO::PARAM_STR);
+
+            // Exécution de la requête
+            return $stmt->execute();
+        } catch (Exception $e) {
+            // Retourner le message d'erreur en cas d'exception
+            return 'Erreur : ' . $e->getMessage();
+        }
+    }
 }

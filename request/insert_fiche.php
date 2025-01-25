@@ -121,11 +121,33 @@ if ($ficheObj->insertFiche($data)) {
     // Envoyer l'email
     $emailManagerObj->sendEmail($subject, $body, $recipients);
 
+
+    //Envoyer message de confirmation de soumission au demandeur
     $whatsappNumber = "+225" . $data['tel_beneficiaire_fiche'];
     $num_fiche = $data['num_fiche'];
 
     $whatsapp->sendConfirmationSoumissionFicheDecaissement($whatsappNumber, $data['beficiaire_fiche'], $data['num_fiche']);
 
+    //Envoyer message de notification d'approbation au validateur 
+    $num_approbateur = "0748367710";
+
+    if ($data['affectation_id'] == '1') {
+        $num_approbateur = "59820971";
+    }
+    if ($data['affectation_id'] == '19') {
+        $num_approbateur = "58230728";
+    }
+
+    $whatsappNumber = "+225" . $num_approbateur;
+
+
+    // Appel à la méthode d'envoi de l'alerte
+    $responseApproval = $whatsapp->sendApprovalAlert($whatsappNumber, $data['beficiaire_fiche'], $data['num_fiche'], $data['montant_fiche'], $data['precision_fiche']);
+
+    // Débogage : Vérifier la réponse de Twilio
+    if ($responseApproval['status'] !== 'success') {
+        error_log("Erreur lors de l'envoi du message WhatsApp : " . $responseApproval['message']);
+    }
 
     // Retourner un message de succès
     echo json_encode(["status" => "success", "message" => "Fiche inseree avec succes."]);

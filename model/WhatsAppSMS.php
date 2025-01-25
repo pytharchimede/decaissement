@@ -270,4 +270,55 @@ class WhatsAppSMS
             return false;
         }
     }
+
+    /**
+     * Envoie un message WhatsApp basé sur le template "alerte_approbation_en_attente"
+     *
+     * @param string $recipientNumber Numéro de téléphone du destinataire (format international)
+     * @param string $submitterName Nom de la personne ayant soumis la fiche ({{1}})
+     * @param string $fileNumber Numéro de la fiche ({{2}})
+     * @param string $amount Montant de la fiche ({{3}})
+     * @param string $purpose Objectif ou description de la fiche ({{4}})
+     * @return array Résultat de l'envoi avec le statut et le SID du message
+     */
+    /**
+     * Envoie un message WhatsApp basé sur le template "alerte_approbation_en_attente"
+     *
+     * @param string $recipientNumber Numéro de téléphone du destinataire (format international)
+     * @param string $submitterName Nom de la personne ayant soumis la fiche ({{1}})
+     * @param string $fileNumber Numéro de la fiche ({{2}})
+     * @param string $amount Montant de la fiche ({{3}})
+     * @param string $purpose Objectif ou description de la fiche ({{4}})
+     * @return array Résultat de l'envoi avec le statut et le SID du message
+     */
+    public function sendApprovalAlert($recipientNumber, $submitterName, $fileNumber, $amount, $purpose)
+    {
+        try {
+            $message = $this->client->messages->create(
+                "whatsapp:$recipientNumber",
+                [
+                    "from" => $this->from,
+                    "contentSid" => "HXf1d82b34be70c53a7e1da5f30eca373d", // SID du template Twilio
+                    "contentVariables" => json_encode([
+                        "1" => $submitterName,
+                        "2" => $fileNumber,
+                        "3" => $amount,
+                        "4" => $purpose
+                    ]),
+                    "statusCallback" => "https://fidest.ci/decaissement/service/webhook_whatsapp.php?recipientNumber=$recipientNumber" // URL du webhook avec recipientNumber    
+                ]
+            );
+
+            return [
+                'status' => 'success',
+                'messageSid' => $message->sid,
+                'message' => 'Message envoyé avec succès !'
+            ];
+        } catch (\Exception $e) {
+            return [
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ];
+        }
+    }
 }
