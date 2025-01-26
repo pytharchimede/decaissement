@@ -321,4 +321,143 @@ class WhatsAppSMS
             ];
         }
     }
+
+    /**
+     * Envoie un message WhatsApp en fonction de la réponse à une question du chatbot.
+     *
+     * @param string $to Numéro du destinataire (format international).
+     * @param string $question La question posée au chatbot.
+     *
+     * @return mixed Le SID du message en cas de succès, ou null en cas d'erreur.
+     */
+    public function sendMessage($to, $question)
+    {
+        try {
+            // 1. Connecter à la base de données pour interroger la réponse
+            $response = $this->getBotResponseFromDB($question);
+
+            // 2. Si une réponse est trouvée dans la base de données
+            if ($response) {
+                $messageBody = $response;
+            } else {
+                // 3. Si aucune réponse n'est trouvée, proposer une liste des questions possibles
+                $messageBody = "Désolé, je n'ai pas compris votre question. Voici une liste des commandes disponibles :\n\n";
+                $messageBody .= "- *Recap du jour*\n";
+                $messageBody .= "- *Visualiser fiche N°XXXX*\n";
+                $messageBody .= "- *Approuver fiche N°XXXX*\n";
+                $messageBody .= "- *Fiche personnel matricule XXXXXX*\n";
+                $messageBody .= "- *Calendrier personnel matricule XXXX*\n";
+                $messageBody .= "- *Valider fiche N°XXXX*\n";
+                $messageBody .= "- *Reporter fiche N°XXXX au jj/mm/aaaa*\n";
+                $messageBody .= "- *Refuser fiche N°XXXX*\n";
+                $messageBody .= "- *Décaisser fiche N°XXXX*\n";
+            }
+
+            // 4. Créer le message à envoyer via Twilio
+            $whatsappMessage = $this->client->messages->create(
+                "whatsapp:$to",
+                [
+                    "from" => $this->from,
+                    "body" => $messageBody
+                ]
+            );
+
+            // 5. Retourner le SID du message envoyé
+            error_log("Message envoyé avec succès, SID : " . $whatsappMessage->sid);
+            return $whatsappMessage->sid;
+        } catch (Exception $e) {
+            error_log("Erreur lors de l'envoi du message WhatsApp : " . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Récupère la réponse du chatbot depuis la base de données en fonction de la question.
+     *
+     * @param string $question La question posée au chatbot.
+     *
+     * @return string La réponse à la question.
+     */
+    private function getBotResponseFromDB($question)
+    {
+        // 1. Préparer la connexion à la base de données (vous devez remplacer cela par votre propre connexion)
+        $pdo = new PDO("mysql:host=localhost;dbname=fidestci_app_db", "fidestci_ulrich", "@Succes2019"); // Remplacez par vos infos
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+        // 2. Requête SQL pour récupérer la réponse à la question
+        $stmt = $pdo->prepare("SELECT response FROM chatbot_responses WHERE question LIKE :question LIMIT 1");
+        $stmt->bindValue(':question', "%$question%", PDO::PARAM_STR);
+        $stmt->execute();
+
+        // 3. Vérifier si une réponse est trouvée
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        // 4. Retourner la réponse ou null si aucune correspondance
+        return $result ? $result['response'] : null;
+    }
+
+    public function askQuestion($to, $currentStep)
+    {
+        $questions = [
+            1 => "Quel est le nom de l'entreprise ?",
+            2 => "Quel est le nom de la personne ?",
+            3 => "Quel est le numéro de téléphone ?",
+            4 => "Quelle est l'affectation ?",
+            5 => "Quelle est la catégorie ?",
+            6 => "Quel est le motif ?",
+            7 => "Veuillez fournir une précision.",
+            8 => "Quel est le montant ?",
+            9 => "Quel est le mode de paiement ?"
+        ];
+
+        // Si on est encore dans la liste des questions
+        if (array_key_exists($currentStep, $questions)) {
+            $question = $questions[$currentStep];
+            $this->client->messages->create(
+                "whatsapp:$to",
+                [
+                    "from" => $this->from,
+                    "body" => $question
+                ]
+            );
+        } else {
+            // Toutes les questions sont terminées, envoyer le récapitulatif
+            $this->sendSummary($to);
+        }
+    }
+
+    public function processResponse($to, $response, $currentStep)
+    {
+        // Enregistrer la réponse selon l'étape
+        $responses = $_SESSION['responses'] ?? [];
+        $responses[$currentStep] = $response;
+        $_SESSION['responses'] = $responses;
+
+        // Passer à l'étape suivante
+        $nextStep = $currentStep + 1;
+        $this->askQuestion($to, $nextStep);
+    }
+
+    public function sendSummary($to)
+    {
+        $responses = $_SESSION['responses'] ?? [];
+        $messageBody = "- *Voici les informations fournies :*\n";
+        $messageBody .= "  - entreprise : " . ($responses[1] ?? "Non spécifiée") . "\n";
+        $messageBody .= "  - nom : " . ($responses[2] ?? "Non spécifié") . "\n";
+        $messageBody .= "  - téléphone : " . ($responses[3] ?? "Non spécifié") . "\n";
+        $messageBody .= "  - affectation : " . ($responses[4] ?? "Non spécifiée") . "\n";
+        $messageBody .= "  - catégorie : " . ($responses[5] ?? "Non spécifiée") . "\n";
+        $messageBody .= "  - motif : " . ($responses[6] ?? "Non spécifié") . "\n";
+        $messageBody .= "  - précision : " . ($responses[7] ?? "Non spécifiée") . "\n";
+        $messageBody .= "  - montant : " . ($responses[8] ?? "Non spécifié") . "\n";
+        $messageBody .= "  - Mode de paiement : " . ($responses[9] ?? "Non spécifié");
+
+        $this->client->messages->create(
+            "whatsapp:$to",
+            [
+                "from" => $this->from,
+                "body" => $messageBody . "\n\nRépondez 'OK' pour confirmer ou 'NON' pour recommencer."
+            ]
+        );
+    }
 }
