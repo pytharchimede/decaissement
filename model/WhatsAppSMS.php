@@ -35,51 +35,6 @@ class WhatsAppSMS
         }
     }
 
-    // Méthode d'envoi de message avec bouton interactif (Twilio API ne supporte pas encore les boutons dans certains pays)
-    // Méthode d'envoi de message avec un template et bouton interactif
-    public function sendWhatsAppMessageWithTemplateAndButton($to, $nom_personnel, $id_feb, $codeAutorisation, $buttonText, $buttonUrl)
-    {
-        try {
-            $whatsappMessage = $this->client->messages->create(
-                "whatsapp:$to",
-                [
-                    "from" => $this->from,
-                    "body" => "Bonjour, voici votre code d'autorisation: $codeAutorisation", // Un corps de message de base
-                    "template" => [
-                        "name" => "validation_fiche_expression_besoin", // Nom du template validé
-                        "language" => ["code" => "fr"], // Langue du template
-                        "components" => [
-                            [
-                                "type" => "body",
-                                "parameters" => [
-                                    ["type" => "text", "text" => $nom_personnel],
-                                    ["type" => "text", "text" => $id_feb],
-                                    ["type" => "text", "text" => $codeAutorisation]
-                                ]
-                            ],
-                            [
-                                "type" => "button",
-                                "sub_type" => "url",
-                                "index" => 0,
-                                "parameters" => [
-                                    ["type" => "text", "text" => $buttonUrl] // Lien du bouton
-                                ]
-                            ]
-                        ]
-                    ]
-                ]
-            );
-
-
-            error_log("Message WhatsApp avec template et bouton SID: " . $whatsappMessage->sid);
-            return $whatsappMessage;
-        } catch (Exception $e) {
-            error_log("Erreur lors de l'envoi du message template avec bouton: " . $e->getMessage());
-            return null;
-        }
-    }
-
-
     // Méthode pour envoyer un message avec un template et des variables dynamiques
     public function sendWhatsAppTemplateMessage($to, $nom_personnel, $id_feb, $codeAutorisation)
     {
@@ -459,5 +414,107 @@ class WhatsAppSMS
                 "body" => $messageBody . "\n\nRépondez 'OK' pour confirmer ou 'NON' pour recommencer."
             ]
         );
+    }
+
+
+    /**
+     * Envoie un message WhatsApp en utilisant le template "confirm_approbation"
+     *
+     * @param string $to Numéro de téléphone du destinataire (format international)
+     * @param string $nom_demandeur Nom du demandeur ({{1}})
+     * @param string $num_fiche Numéro de la fiche ({{2}})
+     * @param string $nom_validateur nom du validateur ({{3}})
+     * @return mixed ID du message ou false en cas d'erreur
+     */
+    public function sendConfirmationApprobation($to, $nom_demandeur, $num_fiche, $nom_validateur)
+    {
+        try {
+            $message = $this->client->messages->create(
+                "whatsapp:$to",
+                [
+                    "from" => $this->from,
+                    "contentSid" => "HXc46e319ab68ea78e9849c67055b01ff3", // SID du template
+                    "contentVariables" => json_encode([
+                        "1" => $nom_demandeur,
+                        "2" => $num_fiche,
+                        "3" => $nom_validateur
+                    ])
+                ]
+            );
+
+            error_log("Message WhatsApp envoyé avec succès, SID: " . $message->sid);
+            return $message->sid;
+        } catch (\Exception $e) {
+            error_log("Erreur lors de l'envoi du message: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Envoie un message WhatsApp en utilisant le template "confirm_approbation"
+     *
+     * @param string $to Numéro de téléphone du destinataire (format international)
+     * @param string $nom_demandeur Nom du demandeur ({{1}})
+     * @param string $num_fiche Numéro de la fiche ({{2}})
+     * @param string $nom_validateur nom du validateur ({{3}})
+     * @return mixed ID du message ou false en cas d'erreur
+     */
+    public function sendInformRefus($to, $nom_demandeur, $num_fiche, $nom_validateur)
+    {
+        try {
+            $message = $this->client->messages->create(
+                "whatsapp:$to",
+                [
+                    "from" => $this->from,
+                    "contentSid" => "HXfe73b838665cf8a952fcac7806b38009", // SID du template
+                    "contentVariables" => json_encode([
+                        "1" => $nom_demandeur,
+                        "2" => $num_fiche,
+                        "3" => $nom_validateur
+                    ])
+                ]
+            );
+
+            error_log("Message WhatsApp envoyé avec succès, SID: " . $message->sid);
+            return $message->sid;
+        } catch (\Exception $e) {
+            error_log("Erreur lors de l'envoi du message: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Envoie un message WhatsApp en utilisant le template "confirm_approbation"
+     *
+     * @param string $to Numéro de téléphone du destinataire (format international)
+     * @param string $nom_demandeur Nom du demandeur ({{1}})
+     * @param string $num_fiche Numéro de la fiche ({{2}})
+     * @param string $nom_validateur nom du validateur ({{3}})
+     * @param string $date_new nom du validateur ({{4}})
+     * @return mixed ID du message ou false en cas d'erreur
+     */
+    public function sendInformReport($to, $nom_demandeur, $num_fiche, $nom_validateur, $date_new)
+    {
+        try {
+            $message = $this->client->messages->create(
+                "whatsapp:$to",
+                [
+                    "from" => $this->from,
+                    "contentSid" => "HX2671bf49532d6c862932287632cf42c9", // SID du template
+                    "contentVariables" => json_encode([
+                        "1" => $nom_demandeur,
+                        "2" => $num_fiche,
+                        "3" => $nom_validateur,
+                        "4" => $date_new
+                    ])
+                ]
+            );
+
+            error_log("Message WhatsApp envoyé avec succès, SID: " . $message->sid);
+            return $message->sid;
+        } catch (\Exception $e) {
+            error_log("Erreur lors de l'envoi du message: " . $e->getMessage());
+            return false;
+        }
     }
 }
