@@ -75,9 +75,9 @@ $data = [
 
 error_log(json_encode($data));
 
-if ($data['code_autorisation_feb'] == 'Pas autorise') {
+if ($data['code_autorisation_feb'] == 'Pas autorise' || !isset($data['code_autorisation_feb']) || $_SESSION['companyName'] == '' || !isset($_SESSION['companyName'])) {
     // Retourner un message de succès
-    echo json_encode(["status" => "error", "message" => "Impossible de créer la fiche sans code d'autorisation de FEB"]);
+    echo json_encode(["status" => "error", "message" => "Session expirée ou inexistante ! Veuillez recommencer svp."]);
     exit; // Arrête l'exécution du script
 }
 
