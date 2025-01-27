@@ -73,6 +73,14 @@ $data = [
     'entreprise' => isset($_SESSION['companyName']) ? $_SESSION['companyName'] : '',
 ];
 
+error_log(json_encode($data));
+
+if ($data['code_autorisation_feb'] == 'Pas autorise') {
+    // Retourner un message de succès
+    echo json_encode(["status" => "error", "message" => "Impossible de créer la fiche sans code d'autorisation de FEB"]);
+    exit; // Arrête l'exécution du script
+}
+
 
 //Définir une variable de session
 $_SESSION['num_fiche'] = $data['num_fiche'];
