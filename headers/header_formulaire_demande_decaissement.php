@@ -1,12 +1,12 @@
 <?php
 session_start();
 
-// if (!isset($_SESSION['code_autorisation_feb']) || $_SESSION['code_autorisation_feb'] == '') {
+if (!isset($_SESSION['code_autorisation_feb']) || $_SESSION['code_autorisation_feb'] == '') {
 
-//     header('Location: https://fidest.ci/performance/demande_decaissement.php');
+    header('Location: https://fidest.ci/performance/demande_decaissement.php');
 
-//     exit();
-// }
+    exit();
+}
 
 include 'model/Database.php';
 include 'model/Affectation.php';
@@ -25,15 +25,10 @@ $listeService = $serviceObj->getAllServices();
 
 $_SESSION['code_autorisation_feb'] = isset($_SESSION['code_autorisation_feb']) ? $_SESSION['code_autorisation_feb'] : 'Pas autorise';
 
-// $exist = $ficheObj->getByAuthCode($_SESSION['code_autorisation_feb']);
+$exist = $ficheObj->getByAuthCode($_SESSION['code_autorisation_feb']);
 
-// $nbExist = count($exist);
-
-// if ($nbExist > 0) {
-
-//     unset($_SESSION['code_autorisation_feb']);
-
-//     header('Location: ../performance/code_deja_utilise.php');
-
-//     exit();
-// }
+if (!empty($exist)) { // Si un enregistrement existe avec ce code
+    unset($_SESSION['code_autorisation_feb']);
+    header('Location: ../performance/code_deja_utilise.php');
+    exit();
+}

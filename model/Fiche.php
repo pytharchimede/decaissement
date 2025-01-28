@@ -78,9 +78,9 @@ class Fiche
     {
         $sql = "SELECT * FROM fiche WHERE code_autorisation_feb = :code_autorisation_feb";
         $stmt = $this->pdo->prepare($sql);
-        $stmt->bindParam(':code_autorisation_feb', $code_autorisation_feb, PDO::PARAM_INT);
+        $stmt->bindParam(':code_autorisation_feb', $code_autorisation_feb, PDO::PARAM_STR);
         $stmt->execute();
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     // Méthode pour mettre à jour une fiche
