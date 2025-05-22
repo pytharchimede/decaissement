@@ -15,30 +15,35 @@ class SmsSender
      * @param string $stationManagerName Nom du gérant de la station
      * @return mixed Réponse de l'API ou false en cas d'erreur
      */
+
     public function sendOtpToStationManager($phoneNumber, $otp, $stationManagerName)
     {
         $message = "Bonjour $stationManagerName,
 
-            Votre code OTP pour la validation de la demande de carburant de BANAMUR Industries est : $otp.
+Votre code OTP pour la validation de la demande de carburant de BANAMUR Industries est : $otp.
 
-            Merci de procéder à la vérification et à la délivrance du carburant conformément à la procédure.
+Merci de procéder à la vérification et à la délivrance du carburant conformément à la procédure.
 
-            Cordialement,
-            M Alex BRAUD
-            Directeur Général de BANAMUR INDUSTRIES";
+Cordialement,
+M Alex BRAUD
+Directeur Général de BANAMUR INDUSTRIES";
 
-        // Encodage URL du message
         $messageEncoded = urlencode($message);
-
-        // Construction de l’URL
         $url = "{$this->apiUrl}?sendsms&apikey={$this->apiKey}&apitoken={$this->apiToken}&type=sms&from={$this->senderId}&to=$phoneNumber&text=$messageEncoded";
 
-        // Envoi via cURL
+        // Envoi via cURL avec gestion d'erreur
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // AJOUTE CETTE LIGNE POUR TEST
         $response = curl_exec($ch);
-        curl_close($ch);
 
+        if ($response === false) {
+            $error = curl_error($ch);
+            curl_close($ch);
+            return "Erreur cURL : $error\nURL : $url";
+        }
+
+        curl_close($ch);
         return $response;
     }
 }
