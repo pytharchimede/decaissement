@@ -236,17 +236,7 @@ class WhatsAppSMS
      * @param string $purpose Objectif ou description de la fiche ({{4}})
      * @return array Résultat de l'envoi avec le statut et le SID du message
      */
-    /**
-     * Envoie un message WhatsApp basé sur le template "alerte_approbation_en_attente"
-     *
-     * @param string $recipientNumber Numéro de téléphone du destinataire (format international)
-     * @param string $submitterName Nom de la personne ayant soumis la fiche ({{1}})
-     * @param string $fileNumber Numéro de la fiche ({{2}})
-     * @param string $amount Montant de la fiche ({{3}})
-     * @param string $purpose Objectif ou description de la fiche ({{4}})
-     * @return array Résultat de l'envoi avec le statut et le SID du message
-     */
-    public function sendApprovalAlert($recipientNumber, $submitterName, $fileNumber, $amount, $purpose)
+    public function sendCarburantApprovalAlert($recipientNumber, $submitterName, $fileNumber, $amount, $purpose)
     {
         try {
             $message = $this->client->messages->create(
@@ -261,6 +251,47 @@ class WhatsAppSMS
                         "4" => $purpose
                     ]),
                     "statusCallback" => "https://fidest.ci/decaissement/service/webhook_whatsapp.php?recipientNumber=$recipientNumber" // URL du webhook avec recipientNumber    
+                ]
+            );
+
+            return [
+                'status' => 'success',
+                'messageSid' => $message->sid,
+                'message' => 'Message envoyé avec succès !'
+            ];
+        } catch (\Exception $e) {
+            return [
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Envoie un message WhatsApp basé sur le template "copy_alerte_fiche_carburant"
+     *
+     * @param string $recipientNumber Numéro de téléphone du destinataire (format international)
+     * @param string $fileNumber Numéro de la fiche ({{1}})
+     * @param string $amount Montant de la fiche ({{2}})
+     * @param string $submitterName Nom de la personne ayant soumis la fiche ({{3}})
+     * @param string $purpose Objectif ou description de la fiche ({{4}})
+     * @return array Résultat de l'envoi avec le statut et le SID du message
+     */
+    public function sendApprovalAlert($recipientNumber, $fileNumber, $amount, $submitterName, $purpose)
+    {
+        try {
+            $message = $this->client->messages->create(
+                "whatsapp:$recipientNumber",
+                [
+                    "from" => $this->from,
+                    "contentSid" => "HXc44063b98e2c4a66d07e26e1e45468bc", // SID du template Twilio
+                    "contentVariables" => json_encode([
+                        "1" => $fileNumber,
+                        "2" => $amount,
+                        "3" => $submitterName,
+                        "4" => $purpose
+                    ]),
+                    "statusCallback" => "https://fidest.ci/decaissement/service/webhook_whatsapp.php?recipientNumber=$recipientNumber"
                 ]
             );
 
