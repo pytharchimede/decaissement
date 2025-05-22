@@ -14,7 +14,7 @@ $emailManagerObj = new EmailManager();
 
 // Envoi notification whatsapp
 $sid = "ACded19f6cd55b2ba3d18c13f438f1e878"; // Votre SID Twilio
-$token = "fea6684286c6b923e8ce0ce19bc48cb4"; // Remplacez par votre AuthToken
+$token = "7f1136b112e6d8cb4a6af94223d0872e"; // Numéro WhatsApp Twilio
 $from = "whatsapp:+2250711048002"; // Numéro WhatsApp Twilio
 
 $whatsapp = new WhatsAppSMS($sid, $token, $from);
@@ -45,6 +45,9 @@ if (isset($_FILES['photo_demandeur']['name']) && $_FILES['photo_demandeur']['err
     }
 }
 
+// Ajoutez cette ligne avant la gestion de la CNI
+$cniNewName = '';
+
 // Vérification et gestion de la CNI du bénéficiaire
 if (isset($_FILES['cni_demandeur']['name']) && $_FILES['cni_demandeur']['error'] == UPLOAD_ERR_OK) {
     $cniExtension = pathinfo($_FILES['cni_demandeur']['name'], PATHINFO_EXTENSION);
@@ -56,6 +59,8 @@ if (isset($_FILES['cni_demandeur']['name']) && $_FILES['cni_demandeur']['error']
     } else {
         $data['cni_beneficiaire'] = '';
     }
+} else {
+    $data['cni_beneficiaire'] = '';
 }
 
 // Données de la fiche
@@ -133,17 +138,16 @@ if ($ficheObj->insertFiche($data)) {
     $whatsappNumber = "+225" . $data['tel_beneficiaire_fiche'];
     $num_fiche = $data['num_fiche'];
 
-    $whatsapp->sendConfirmationSoumissionFicheDecaissement($whatsappNumber, $data['beficiaire_fiche'], $data['num_fiche']);
+    // $whatsapp->sendConfirmationSoumissionFicheDecaissement($whatsappNumber, $data['beficiaire_fiche'], $data['num_fiche']);
 
-    // Vérifier si la demande concerne le carburant
-    $texte_demande = '';
-    if (isset($data['precision_fiche']) && !empty($data['precision_fiche'])) {
-        $texte_demande = $data['precision_fiche'];
-    } elseif (isset($data['designation_fiche']) && !empty($data['designation_fiche'])) {
-        $texte_demande = $data['designation_fiche'];
-    }
+    // Vérifier si la demande concerne le carburant dans precision_fiche ou designation_fiche
+    $texte_precision = isset($data['precision_fiche']) ? $data['precision_fiche'] : '';
+    $texte_designation = isset($data['designation_fiche']) ? $data['designation_fiche'] : '';
 
-    if (stripos($texte_demande, 'carburant') !== false) {
+    if (
+        stripos($texte_precision, 'carburant') !== false ||
+        stripos($texte_designation, 'carburant') !== false
+    ) {
         // Numéro du DG (à adapter si besoin)
         $num_dg = "05055262";
         $whatsappNumberDG = "+225" . $num_dg;
@@ -154,7 +158,7 @@ if ($ficheObj->insertFiche($data)) {
             $data['beficiaire_fiche'],
             $data['num_fiche'],
             $data['montant_fiche'],
-            $texte_demande
+            $texte_precision ?: $texte_designation
         );
 
         // Débogage : Vérifier la réponse de Twilio
