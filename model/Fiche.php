@@ -218,4 +218,118 @@ class Fiche
             return 'Erreur : ' . $e->getMessage();
         }
     }
+
+
+    /**
+     * Certifie conforme une fiche par son numéro.
+     * Si le chantier_id = 35, approuve automatiquement la fiche.
+     * Ajoute une trace de l'action.
+     *
+     * @param string $num_fiche
+     * @param string $secur_conforme (identifiant de l'utilisateur)
+     * @param string $adresse_ip (adresse IP de l'utilisateur)
+     * @param int $port (port de l'utilisateur)
+     * @return bool
+     */
+    public function certifierConformeFiche($num_fiche, $secur_conforme, $adresse_ip, $port)
+    {
+        try {
+            $date_trace = gmdate('Y-m-d H:i:s');
+
+            // 1. Mettre à jour conforme
+            $sql = "UPDATE fiche SET conforme = 1, secur_conforme = :secur_conforme, date_conforme = :date_conforme WHERE num_fiche = :num_fiche";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([
+                'secur_conforme' => $secur_conforme,
+                'date_conforme' => $date_trace,
+                'num_fiche' => $num_fiche
+            ]);
+
+            // 2. Récupérer la fiche et le chantier_id
+            $sql = "SELECT * FROM fiche WHERE num_fiche = :num_fiche";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute(['num_fiche' => $num_fiche]);
+            $fiche = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            // 3. Si chantier_id == 35, approuver automatiquement
+            if ($fiche && isset($fiche['chantier_id']) && $fiche['chantier_id'] == 35) {
+                $sql = "UPDATE fiche SET approuve = 1, secur_approuve = :secur_approuve, date_approuve = :date_approuve WHERE num_fiche = :num_fiche";
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->execute([
+                    'secur_approuve' => $secur_conforme,
+                    'date_approuve' => $date_trace,
+                    'num_fiche' => $num_fiche
+                ]);
+                // Trace approbation
+                $lib_trace = "Approbation de la fiche N° <b>$num_fiche</b> soumise par <b>{$fiche['beficiaire_fiche']}</b> pour <b>{$fiche['designation_fiche']}</b> <br> ";
+                $adresse = "Adresse IP: $adresse_ip Port: $port";
+                $this->addTrace($lib_trace, $date_trace, $adresse, $secur_conforme);
+            }
+
+            // 4. Trace conformité
+            $lib_trace = "Declaree conforme | Fiche N° <b>$num_fiche</b> soumise par <b>{$fiche['beficiaire_fiche']}</b> pour <b>{$fiche['designation_fiche']}</b> <br> ";
+            $adresse = "Adresse IP: $adresse_ip Port: $port";
+            $this->addTrace($lib_trace, $date_trace, $adresse, $secur_conforme);
+
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Ajoute une trace dans la table trace.
+     */
+    private function addTrace($lib_trace, $date_trace, $adresse, $secur)
+    {
+        $sql = "INSERT INTO trace (lib_trace, date_trace, adresse_ip, secur) VALUES (:lib_trace, :date_trace, :adresse_ip, :secur)";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([
+            'lib_trace' => $lib_trace,
+            'date_trace' => $date_trace,
+            'adresse_ip' => $adresse,
+            'secur' => $secur
+        ]);
+    }
+
+    /**
+     * Valide une fiche par son numéro.
+     * Met à jour les champs et ajoute une trace.
+     *
+     * @param string $num_fiche
+     * @param string $secur_valid (identifiant de l'utilisateur)
+     * @param string $adresse_ip (adresse IP de l'utilisateur)
+     * @param int $port (port de l'utilisateur)
+     * @return bool
+     */
+    public function validerFicheByNum($num_fiche, $secur_valid, $adresse_ip, $port)
+    {
+        try {
+            // 1. Mettre à jour la fiche (etat_fiche=1, sauvegarder=0, secur_valid)
+            $sql = "UPDATE fiche SET etat_fiche = 1, sauvegarder = 0, secur_valid = :secur_valid WHERE num_fiche = :num_fiche";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([
+                'secur_valid' => $secur_valid,
+                'num_fiche' => $num_fiche
+            ]);
+
+            // 2. Récupérer les infos de la fiche
+            $sql = "SELECT * FROM fiche WHERE num_fiche = :num_fiche";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute(['num_fiche' => $num_fiche]);
+            $fiche = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            // 3. Préparer la traçabilité
+            $date_trace = gmdate('Y-m-d H:i:s');
+            $lib_trace = "Validation de la fiche  N° <b>$num_fiche</b> soumise par <b>{$fiche['beficiaire_fiche']}</b> pour <b>{$fiche['designation_fiche']}</b> <br> ";
+            $adresse = "Adresse IP: $adresse_ip Port: $port";
+
+            // 4. Ajouter la trace
+            $this->addTrace($lib_trace, $date_trace, $adresse, $secur_valid);
+
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
 }

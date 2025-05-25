@@ -548,4 +548,83 @@ class WhatsAppSMS
             return false;
         }
     }
+
+
+
+    /**
+     * Envoie une alerte de gestion de fiche carburant avec call-to-action (template "copy_call_to_action_manage_carburant")
+     *
+     * @param string $recipientNumber Numéro du destinataire (format international)
+     * @param string $fileNumber Numéro de la fiche ({{1}})
+     * @param string $amount Montant de la fiche ({{2}})
+     * @param string $submitterName Nom du demandeur ({{3}})
+     * @param string $purpose Précision/motif ({{4}})
+     * @return array Résultat de l'envoi avec le statut et le SID du message
+     */
+    public function sendCarburantManageCallToAction($recipientNumber, $fileNumber, $amount, $submitterName, $purpose)
+    {
+        try {
+            $message = $this->client->messages->create(
+                "whatsapp:$recipientNumber",
+                [
+                    "from" => $this->from,
+                    "contentSid" => "HX4b63a7194e79d55f7ea9ed91e2dce907", // SID du template Twilio
+                    "contentVariables" => json_encode([
+                        "1" => $fileNumber,
+                        "2" => $amount,
+                        "3" => $submitterName,
+                        "4" => $purpose
+                    ])
+                ]
+            );
+
+            return [
+                'status' => 'success',
+                'messageSid' => $message->sid,
+                'message' => 'Message envoyé avec succès !'
+            ];
+        } catch (\Exception $e) {
+            return [
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ];
+        }
+    }
+
+
+    /**
+     * Envoie le bon d'essence au demandeur via WhatsApp (template "send_carburant_bon")
+     *
+     * @param string $to Numéro du destinataire (format international, ex : +22507xxxxxxx)
+     * @param string $nom_demandeur Nom du demandeur ({{1}})
+     * @param string $id_bon Identifiant du bon (sera injecté dans l'URL du bouton {{2}})
+     * @return array Résultat de l'envoi avec le statut et le SID du message
+     */
+    public function sendCarburantBon($to, $nom_demandeur, $id_bon)
+    {
+        try {
+            $message = $this->client->messages->create(
+                "whatsapp:$to",
+                [
+                    "from" => $this->from,
+                    "contentSid" => "HX4d2be803642c52877ba004abe03dc9bc", // SID du template Twilio
+                    "contentVariables" => json_encode([
+                        "1" => $nom_demandeur,
+                        "2" => $id_bon
+                    ])
+                ]
+            );
+
+            return [
+                'status' => 'success',
+                'messageSid' => $message->sid,
+                'message' => 'Bon d\'essence envoyé avec succès !'
+            ];
+        } catch (\Exception $e) {
+            return [
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ];
+        }
+    }
 }

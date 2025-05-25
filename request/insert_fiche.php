@@ -32,6 +32,8 @@ if (!is_dir($cniDir)) {
     mkdir($cniDir, 0777, true);
 }
 
+$photoNewName = '';
+
 // Vérification et gestion de la photo du bénéficiaire
 if (isset($_FILES['photo_demandeur']['name']) && $_FILES['photo_demandeur']['error'] == UPLOAD_ERR_OK) {
     $photoExtension = pathinfo($_FILES['photo_demandeur']['name'], PATHINFO_EXTENSION);
@@ -149,15 +151,15 @@ if ($ficheObj->insertFiche($data)) {
         stripos($texte_designation, 'carburant') !== false
     ) {
         // Numéro du DG (à adapter si besoin)
-        $num_dg = "05055262";
+        $num_dg = "05055262"; // Numéro de téléphone du DG
         $whatsappNumberDG = "+225" . $num_dg;
 
-        // Appel à la méthode d'envoi de l'alerte au DG uniquement
-        $responseApproval = $whatsapp->sendCarburantApprovalAlert(
+        // Appel à la méthode d'envoi de l'alerte au DG avec call-to-action
+        $responseApproval = $whatsapp->sendCarburantManageCallToAction(
             $whatsappNumberDG,
-            $data['beficiaire_fiche'],
             $data['num_fiche'],
             $data['montant_fiche'],
+            $data['beficiaire_fiche'],
             $texte_precision ?: $texte_designation
         );
 
