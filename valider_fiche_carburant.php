@@ -40,9 +40,8 @@ if ($success) {
     $date = new DateTime($fiche['date_creat_fiche']);
     $code_bon = 'BE-' . $date->format('ym') . '-' . substr(str_pad($num_fiche, 5, '0', STR_PAD_LEFT), -5);
 
-    // Créer le bon d'essence en base
-    $demandeEssenceObj = new DemandeEssence($pdo);
-    $demandeEssenceObj->create([
+
+    $data = [
         'num_fiche'        => $num_fiche,
         'code_bon'         => $code_bon,
         'nom_beneficiaire' => $fiche['beficiaire_fiche'],
@@ -52,7 +51,13 @@ if ($success) {
         'date_demande'     => $fiche['date_creat_fiche'],
         'motif'            => $fiche['precision_fiche'] ?? '',
         'dg_nom'           => 'M. Alex Braud'
-    ]);
+    ];
+
+    var_dump($data); // Pour déboguer les données avant insertion
+
+    // Créer le bon d'essence en base
+    $demandeEssenceObj = new DemandeEssence($pdo);
+    $demandeEssenceObj->create($data);
 
     // Envoi du bon via WhatsApp
     $sid = "ACded19f6cd55b2ba3d18c13f438f1e878"; // Votre SID Twilio
