@@ -151,7 +151,7 @@ if ($ficheObj->insertFiche($data)) {
         stripos($texte_designation, 'carburant') !== false
     ) {
         // Numéro du DG (à adapter si besoin)
-        $num_dg = "05055262"; // Numéro de téléphone du DG
+        $num_dg = "0544577666"; // Numéro de téléphone du DG
         $whatsappNumberDG = "+225" . $num_dg;
 
         // Appel à la méthode d'envoi de l'alerte au DG avec call-to-action
@@ -175,7 +175,7 @@ if ($ficheObj->insertFiche($data)) {
         contientMotReparation($texte_designation)
     ) {
         // Numéro du DG (à adapter si besoin)
-        $num_dg = "05055262"; // Numéro de téléphone du DG
+        $num_dg = "0544577666"; // Numéro de téléphone du DG
         $whatsappNumberDG = "+225" . $num_dg;
 
         // Appel à la méthode d'envoi de l'alerte URGENCE réparation
