@@ -627,4 +627,85 @@ class WhatsAppSMS
             ];
         }
     }
+
+
+    /**
+     * Envoie une alerte de gestion de fiche carburant avec call-to-action (template "copy_call_to_action_manage_carburant")
+     *
+     * @param string $recipientNumber Numéro du destinataire (format international)
+     * @param string $fileNumber Numéro de la fiche ({{1}})
+     * @param string $amount Montant de la fiche ({{2}})
+     * @param string $submitterName Nom du demandeur ({{3}})
+     * @param string $purpose Précision/motif ({{4}})
+     * @return array Résultat de l'envoi avec le statut et le SID du message
+     */
+    public function sendReparationManageCallToAction($recipientNumber, $fileNumber, $amount, $submitterName, $purpose)
+    {
+        try {
+            $message = $this->client->messages->create(
+                "whatsapp:$recipientNumber",
+                [
+                    "from" => $this->from,
+                    "contentSid" => "HX4b63a7194e79d55f7ea9ed91e2dce907", // SID du template Twilio
+                    "contentVariables" => json_encode([
+                        "1" => $fileNumber,
+                        "2" => $amount,
+                        "3" => $submitterName,
+                        "4" => $purpose
+                    ])
+                ]
+            );
+
+            return [
+                'status' => 'success',
+                'messageSid' => $message->sid,
+                'message' => 'Message envoyé avec succès !'
+            ];
+        } catch (\Exception $e) {
+            return [
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Envoie une alerte WhatsApp pour une réparation urgente (template "call_to_action_manage_reparation")
+     *
+     * @param string $recipientNumber Numéro du destinataire (format international)
+     * @param string $fileNumber Numéro de la fiche ({{1}})
+     * @param string $amount Montant de la fiche ({{2}})
+     * @param string $submitterName Nom du demandeur ({{3}})
+     * @param string $purpose Précision/motif ({{4}})
+     * @return array Résultat de l'envoi avec le statut et le SID du message
+     */
+    public function sendUrgentReparationCallToAction($recipientNumber, $fileNumber, $amount, $submitterName, $purpose)
+    {
+        try {
+            $message = $this->client->messages->create(
+                "whatsapp:$recipientNumber",
+                [
+                    "from" => $this->from,
+                    "contentSid" => "HXfa3f81764bee744526b4c8036823fab4", // SID du template Twilio URGENCE
+                    "contentVariables" => json_encode([
+                        "1" => $fileNumber,
+                        "2" => $amount,
+                        "3" => $submitterName,
+                        "4" => $purpose
+                    ])
+                ]
+            );
+
+            return [
+                'status' => 'success',
+                'messageSid' => $message->sid,
+                'message' => 'Alerte réparation urgente envoyée avec succès !'
+            ];
+        } catch (\Exception $e) {
+            return [
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ];
+        }
+    }
 }

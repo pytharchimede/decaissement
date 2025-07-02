@@ -169,9 +169,46 @@ if ($ficheObj->insertFiche($data)) {
         }
     }
 
+
+    if (
+        contientMotReparation($texte_precision) ||
+        contientMotReparation($texte_designation)
+    ) {
+        // Numéro du DG (à adapter si besoin)
+        $num_dg = "05055262"; // Numéro de téléphone du DG
+        $whatsappNumberDG = "+225" . $num_dg;
+
+        // Appel à la méthode d'envoi de l'alerte URGENCE réparation
+        $responseApproval = $whatsapp->sendUrgentReparationCallToAction(
+            $whatsappNumberDG,
+            $data['num_fiche'],
+            $data['montant_fiche'],
+            $data['beficiaire_fiche'],
+            $texte_precision ?: $texte_designation
+        );
+
+        // Débogage : Vérifier la réponse de Twilio
+        if ($responseApproval['status'] !== 'success') {
+            error_log("Erreur lors de l'envoi du message WhatsApp : " . $responseApproval['message']);
+        }
+    }
+
     // Retourner un message de succès
     echo json_encode(["status" => "success", "message" => "Fiche inseree avec succes."]);
 } else {
     // Retourner un message d'erreur si l'insertion échoue
     echo json_encode(["status" => "error", "message" => "Une erreur est survenue lors de l'insertion."]);
+}
+
+function contientMotReparation($texte)
+{
+    // Normalise en minuscules et sans accent
+    $texte = mb_strtolower($texte, 'UTF-8');
+    $texte = str_replace(
+        ['é', 'è', 'ê', 'ë', 'à', 'â', 'ä', 'î', 'ï', 'ô', 'ö', 'ù', 'û', 'ü', 'ç'],
+        ['e', 'e', 'e', 'e', 'a', 'a', 'a', 'i', 'i', 'o', 'o', 'u', 'u', 'u', 'c'],
+        $texte
+    );
+    // Cherche "reparation" ou "reparations"
+    return (strpos($texte, 'reparation') !== false || strpos($texte, 'reparations') !== false);
 }

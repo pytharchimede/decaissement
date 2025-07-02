@@ -46,4 +46,45 @@ Directeur Général de BANAMUR INDUSTRIES";
         curl_close($ch);
         return $response;
     }
+
+
+    public function sendBonEssenceToGerant(
+        $phoneNumber,
+        $codeBon,
+        $numFiche,
+        $nomBeneficiaire,
+        $vehicule,
+        $quantite,
+        $montant,
+        $dateDemande,
+        $motif
+    ) {
+        $message = "Nouveau bon d'essence émis :\n"
+            . "Bon : $codeBon\n"
+            . "Fiche : $numFiche\n"
+            . "Bénéficiaire : $nomBeneficiaire\n"
+            . "Véhicule : $vehicule\n"
+            . "Qté : $quantite\n"
+            . "Montant : $montant FCFA\n"
+            . "Date : $dateDemande\n"
+            . "Motif : $motif\n"
+            . "Merci de préparer la livraison.";
+
+        $messageEncoded = urlencode($message);
+        $url = "{$this->apiUrl}?sendsms&apikey={$this->apiKey}&apitoken={$this->apiToken}&type=sms&from={$this->senderId}&to=$phoneNumber&text=$messageEncoded";
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        $response = curl_exec($ch);
+
+        if ($response === false) {
+            $error = curl_error($ch);
+            curl_close($ch);
+            return "Erreur cURL : $error\nURL : $url";
+        }
+
+        curl_close($ch);
+        return $response;
+    }
 }

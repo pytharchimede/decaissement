@@ -5,6 +5,7 @@ require_once 'model/Database.php';
 require_once 'model/Fiche.php';
 require_once 'model/WhatsAppSMS.php';
 require_once 'model/DemandeEssence.php';
+require_once 'model/SmsSender.php';
 
 
 if (!isset($_GET['num_fiche'])) {
@@ -20,6 +21,7 @@ $port = $_SERVER['REMOTE_PORT'] ?? '';
 $dataBaseObj = new Database();
 $pdo = $dataBaseObj->getConnection();
 $ficheObj = new Fiche($pdo);
+$smsSender = new SmsSender();
 
 // 1. Certifier conforme
 $ficheObj->certifierConformeFiche($num_fiche, $secur, $adresse_ip, $port);
@@ -69,9 +71,26 @@ if ($success) {
     // On envoie le code_bon comme identifiant du bon
     $result = $whatsapp->sendCarburantBon($whatsappNumber, $nom_demandeur, $code_bon);
 
+    // Numéro du gérant (format 22507XXXXXXXX)
+    $numeroGerant = "2250505055262"; // À remplacer par le vrai numéro
+
+    // Envoi du SMS au gérant avec tous les détails du bon
+    $smsSender->sendBonEssenceToGerant(
+        $numeroGerant,
+        $code_bon,
+        $num_fiche,
+        $fiche['beficiaire_fiche'],
+        $fiche['designation_fiche'] ?? '',
+        0, // ou la vraie quantité si tu l’as
+        $fiche['montant_fiche'],
+        $fiche['date_creat_fiche'],
+        $fiche['precision_fiche'] ?? ''
+    );
+
     echo "<h2>La fiche carburant n°$num_fiche a été certifiée conforme, approuvée et validée avec succès.</h2>";
     if ($result['status'] === 'success') {
         echo "<p>Le bon d'essence a été créé et envoyé au demandeur via WhatsApp.</p>";
+        header("refresh:2;url=succes_validation.php");
     } else {
         echo "<p>Erreur lors de l'envoi du bon d'essence WhatsApp : {$result['message']}</p>";
     }
