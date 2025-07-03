@@ -22,15 +22,15 @@ $pdo = $dataBaseObj->getConnection();
 $ficheObj = new Fiche($pdo);
 
 // 1. Certifier conforme
-$ficheObj->certifierConformeFiche($num_fiche, $secur, $adresse_ip, $port);
+$succesCertif = $ficheObj->certifierConformeFiche($num_fiche, $secur, $adresse_ip, $port);
 
 // 2. Approuver
-$ficheObj->approveFicheByNum($num_fiche, $secur);
+$succesApprove = $ficheObj->approveFicheByNum($num_fiche, $secur);
 
 // 3. Valider
 // $success = $ficheObj->validerFicheByNum($num_fiche, $secur, $adresse_ip, $port);
 
-if ($success) {
+if ($succesCertif && $succesApprove) {
     // Récupérer les infos du bénéficiaire
     $fiche = $ficheObj->getByNumFiche($num_fiche);
     $whatsappNumber = "+225" . $fiche['tel_beneficiaire_fiche'];
@@ -55,6 +55,8 @@ if ($success) {
 
 
     echo "<h2>La fiche réparation n°$num_fiche a été certifiée conforme, approuvée et validée avec succès.</h2>";
+    header("Location: succes_validation.php");
+    exit;
 } else {
     echo "<h2>Erreur lors de la validation express de la fiche réparation n°$num_fiche.</h2>";
 }
