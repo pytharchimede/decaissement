@@ -1,0 +1,54 @@
+<?php
+
+header('Content-Type: application/json');
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
+
+require_once '../model/Database.php';
+require_once '../model/DemandeEssenceController.php';
+require_once '../model/RechargementCarburantController.php';
+require_once '../model/OtpController.php';
+
+$method = $_SERVER['REQUEST_METHOD'];
+$uri = $_SERVER['REQUEST_URI'];
+
+// Simple routing (ajuste selon ta config serveur)
+$path = parse_url($uri, PHP_URL_PATH);
+
+switch ($path) {
+    case '/api/demande_essence':
+        $controller = new DemandeEssenceController();
+        if ($method === 'GET') {
+            $controller->getAll();
+        } else {
+            http_response_code(405);
+            echo json_encode(['error' => 'Method not allowed']);
+        }
+        break;
+
+    case '/api/rechargement_carburant':
+        $controller = new RechargementCarburantController();
+        if ($method === 'GET') {
+            $controller->getAll();
+        } else {
+            http_response_code(405);
+            echo json_encode(['error' => 'Method not allowed']);
+        }
+        break;
+
+    case '/api/validate_otp':
+        $controller = new OtpController();
+        if ($method === 'POST') {
+            $controller->validateOtp();
+        } else {
+            http_response_code(405);
+            echo json_encode(['error' => 'Method not allowed']);
+        }
+        break;
+
+    default:
+        http_response_code(404);
+        echo json_encode(['error' => 'Endpoint not found']);
+        break;
+}
