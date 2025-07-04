@@ -11,13 +11,10 @@ require_once '../model/RechargementCarburantController.php';
 require_once '../model/OtpController.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
-$uri = $_SERVER['REQUEST_URI'];
+$endpoint = $_GET['endpoint'] ?? '';
 
-// Simple routing (ajuste selon ta config serveur)
-$path = parse_url($uri, PHP_URL_PATH);
-
-switch ($path) {
-    case '/api/demande_essence':
+switch ($endpoint) {
+    case 'demande_essence':
         $controller = new DemandeEssenceController();
         if ($method === 'GET') {
             $controller->getAll();
@@ -27,7 +24,7 @@ switch ($path) {
         }
         break;
 
-    case '/api/rechargement_carburant':
+    case 'rechargement_carburant':
         $controller = new RechargementCarburantController();
         if ($method === 'GET') {
             $controller->getAll();
@@ -37,7 +34,7 @@ switch ($path) {
         }
         break;
 
-    case '/api/validate_otp':
+    case 'validate_otp':
         $controller = new OtpController();
         if ($method === 'POST') {
             $controller->validateOtp();
