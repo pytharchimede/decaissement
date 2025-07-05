@@ -708,4 +708,44 @@ class WhatsAppSMS
             ];
         }
     }
+
+
+    /**
+     * Envoie une notification WhatsApp de confirmation de rechargement carburant
+     *
+     * @param string $to Numéro du destinataire (format international, ex : +22507XXXXXXX)
+     * @param string $nom Nom ou prénom du destinataire (remplace {{1}})
+     * @param string $reference Numéro de référence à insérer dans le message (remplace {{2}})
+     * @return mixed SID du message ou false en cas d'erreur
+     */
+    public function sendOtpRechargeCarburant($to, $nom, $reference)
+    {
+        try {
+            $message = $this->client->messages->create(
+                "whatsapp:$to",
+                [
+                    "from" => $this->from,
+                    "template" => [
+                        "name" => "confirmation_carburant",  // Nom exact du template
+                        "language" => ["code" => "fr"],      // Langue du template
+                        "components" => [
+                            [
+                                "type" => "body",
+                                "parameters" => [
+                                    ["type" => "text", "text" => $nom],        // {{1}}
+                                    ["type" => "text", "text" => $reference]   // {{2}}
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            );
+
+            error_log("Message WhatsApp template envoyé, SID: " . $message->sid);
+            return $message->sid;
+        } catch (Exception $e) {
+            error_log("Erreur envoi WhatsApp template: " . $e->getMessage());
+            return false;
+        }
+    }
 }
