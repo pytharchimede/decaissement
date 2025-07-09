@@ -710,6 +710,7 @@ class WhatsAppSMS
     }
 
 
+
     /**
      * Envoie une notification WhatsApp de confirmation de rechargement carburant
      *
@@ -725,19 +726,11 @@ class WhatsAppSMS
                 "whatsapp:$to",
                 [
                     "from" => $this->from,
-                    "template" => [
-                        "name" => "confirmation_carburant",  // Nom exact du template
-                        "language" => ["code" => "fr"],      // Langue du template
-                        "components" => [
-                            [
-                                "type" => "body",
-                                "parameters" => [
-                                    ["type" => "text", "text" => $nom],        // {{1}}
-                                    ["type" => "text", "text" => $reference]   // {{2}}
-                                ]
-                            ]
-                        ]
-                    ]
+                    "contentSid" => "HX367253747273a87870d79e9dc8ea677f",
+                    "contentVariables" => json_encode([
+                        "1" => $nom,
+                        "2" => $reference
+                    ])
                 ]
             );
 

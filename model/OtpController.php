@@ -27,14 +27,14 @@ class OtpController
                 $update = $pdo->prepare("UPDATE rechargement_carburant SET valid_otp = 1 WHERE id_rechargement_carburant = :id");
                 $update->execute(['id' => $rechargement['id_rechargement_carburant']]);
 
-                echo json_encode(['success' => true, 'message' => 'OTP validé avec succès']);
+                echo json_encode(['status' => 'success', 'message' => 'OTP validé avec succès']);
             } else {
                 http_response_code(400);
-                echo json_encode(['success' => false, 'message' => 'OTP invalide ou déjà utilisé']);
+                echo json_encode(['status' => 'error', 'message' => 'OTP invalide ou déjà utilisé']);
             }
         } catch (Exception $e) {
             http_response_code(500);
-            echo json_encode(['error' => 'Erreur serveur']);
+            echo json_encode(['status' => 'error', 'message' => 'Erreur serveur']);
         }
     }
 
@@ -43,7 +43,8 @@ class OtpController
     {
         $input = json_decode(file_get_contents('php://input'), true);
 
-        if (!isset($input['telephone']) || !isset($input['nom'])) {
+        // Vérification des paramètres requis
+        if (!isset($input['telephone']) || !isset($input['nom']) || !isset($input['montant'])) {
             http_response_code(400);
             echo json_encode(['error' => 'Paramètres manquants']);
             return;
@@ -51,40 +52,56 @@ class OtpController
 
         $telephone = $input['telephone'];
         $nom = $input['nom'];
+        $montant = $input['montant'];
         $otp = rand(100000, 999999);
 
-        require_once __DIR__ . '/WhatsAppSMS.php';
-        $twilioSid = "ACded19f6cd55b2ba3d18c13f438f1e878";
-        $twilioToken = "7f1136b112e6d8cb4a6af94223d0872e";
-        $whatsappFrom = "whatsapp:+2250711048002";
-
+        // 1. Récupérer la station du gérant via le téléphone
         $pdo = Database::getConnection();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-        try {
-            $stmt = $pdo->prepare("INSERT INTO rechargement_carburant (num_beneficiaire, otp, valid_otp, date_enregistrement) VALUES (:num, :otp, 0, NOW())");
-            $stmt->execute([
-                'num' => $telephone,
-                'otp' => $otp
-            ]);
-        } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['error' => "Erreur lors de l'enregistrement de l'OTP : " . $e->getMessage()]);
-            error_log("Erreur insertion OTP : " . $e->getMessage());
+        $stmt = $pdo->prepare("SELECT id FROM stations_service WHERE telephone_gerant = :tel LIMIT 1");
+        $stmt->execute(['tel' => $telephone]);
+        $station = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$station) {
+            http_response_code(404);
+            echo json_encode(['error' => "Aucune station trouvée pour ce gérant"]);
             return;
         }
 
-        $whatsapp = new WhatsAppSMS($twilioSid, $twilioToken, $whatsappFrom);
-        $response = $whatsapp->sendOtpRechargeCarburant($telephone, $nom, $otp);
+        $station_id = $station['id'];
 
-        if ($response) {
-            echo json_encode([
-                'status' => 'success',
-                'message' => 'OTP envoyé avec succès'
+        // 2. (Désactivé) Envoi OTP WhatsApp
+        // require_once __DIR__ . '/WhatsAppSMS.php';
+        // $twilioSid = "...";
+        // $twilioToken = "...";
+        // $whatsappFrom = "...";
+        // $whatsapp = new WhatsAppSMS($twilioSid, $twilioToken, $whatsappFrom);
+        // $response = $whatsapp->sendOtpRechargeCarburant($telephone, $nom, $otp);
+
+        // 3. Enregistrement en BDD
+        try {
+            $stmt = $pdo->prepare(
+                "INSERT INTO rechargement_carburant (num_beneficiaire, otp, valid_otp, date_enregistrement, montant_rechargement_carburant, station_id)
+                 VALUES (:num, :otp, 0, NOW(), :montant, :station_id)"
+            );
+            $stmt->execute([
+                'num' => $telephone,
+                'otp' => $otp,
+                'montant' => $montant,
+                'station_id' => $station_id
             ]);
-        } else {
+        } catch (Exception $e) {
             http_response_code(500);
-            echo json_encode(['error' => "Échec de l'envoi de l'OTP"]);
+            echo json_encode(['error' => "Erreur lors de l'enregistrement du rechargement : " . $e->getMessage()]);
+            error_log("Erreur insertion rechargement : " . $e->getMessage());
+            return;
         }
+
+        // Réponse sans envoi OTP
+        echo json_encode([
+            'status' => 'success',
+            'message' => 'Rechargement enregistré en base (WhatsApp non envoyé)'
+        ]);
     }
 }
