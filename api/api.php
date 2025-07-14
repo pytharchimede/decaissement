@@ -340,7 +340,6 @@ switch ($endpoint) {
                     'plaque',
                     'type_engin_id',
                     'marque_id',
-                    'chauffeur_id',
                     'modele',
                     'permis',
                     'carte_grise',
@@ -359,7 +358,8 @@ switch ($endpoint) {
                         $params[$f] = $input[$f];
                     }
                 }
-                if ($chauffeur_id) {
+                // Ajout du chauffeur_id UNIQUEMENT s'il n'est pas déjà dans $input
+                if ($chauffeur_id && !isset($input['chauffeur_id'])) {
                     $cols[] = 'chauffeur_id';
                     $vals[] = ':chauffeur_id';
                     $params['chauffeur_id'] = $chauffeur_id;
