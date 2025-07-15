@@ -30,6 +30,7 @@ require_once __DIR__ . '/../model/MaterielController.php';
 require_once __DIR__ . '/../model/MateriauxOutilsController.php';
 require_once __DIR__ . '/../model/MaterielBureauController.php';
 require_once __DIR__ . '/../model/InventaireStockController.php';
+require_once __DIR__ . '/../model/StockController.php';
 
 // StationsServiceController sera inclus uniquement si nécessaire
 
@@ -365,6 +366,36 @@ switch ($endpoint) {
         if ($method === 'POST') {
             $controller = new InventaireStockController();
             $controller->ajouter();
+        } else {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        }
+        break;
+
+    case 'valorisation_stocks':
+        if ($method === 'GET') {
+            $controller = new StockController();
+            $controller->getAll();
+        } else {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        }
+        break;
+
+    case 'stock_categories':
+        if ($method === 'GET') {
+            $controller = new StockController();
+            $controller->getCategories();
+        } else {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        }
+        break;
+
+    case 'ajouter_ou_modifier_stock':
+        if ($method === 'POST') {
+            $controller = new StockController();
+            $controller->ajouterOuModifier();
         } else {
             http_response_code(405);
             echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
