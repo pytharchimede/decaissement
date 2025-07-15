@@ -52,7 +52,7 @@ class PlanningController
 
         echo json_encode([
             'status' => 'success',
-            'data' => $result
+            'data' => empty($result) ? (object)[] : $result
         ]);
     }
 
