@@ -29,6 +29,7 @@ require_once __DIR__ . '/../model/RapportJournalierController.php';
 require_once __DIR__ . '/../model/MaterielController.php';
 require_once __DIR__ . '/../model/MateriauxOutilsController.php';
 require_once __DIR__ . '/../model/MaterielBureauController.php';
+require_once __DIR__ . '/../model/InventaireStockController.php';
 
 // StationsServiceController sera inclus uniquement si nécessaire
 
@@ -333,6 +334,36 @@ switch ($endpoint) {
     case 'ajouter_materiel_bureau':
         if ($method === 'POST') {
             $controller = new MaterielBureauController();
+            $controller->ajouter();
+        } else {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        }
+        break;
+
+    case 'inventaire_stock':
+        if ($method === 'GET') {
+            $controller = new InventaireStockController();
+            $controller->getAll();
+        } else {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        }
+        break;
+
+    case 'inventaire_stock_categories':
+        if ($method === 'GET') {
+            $controller = new InventaireStockController();
+            $controller->getCategories();
+        } else {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        }
+        break;
+
+    case 'ajouter_inventaire_stock':
+        if ($method === 'POST') {
+            $controller = new InventaireStockController();
             $controller->ajouter();
         } else {
             http_response_code(405);
