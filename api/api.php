@@ -28,6 +28,7 @@ require_once __DIR__ . '/../model/PlanningController.php';
 require_once __DIR__ . '/../model/RapportJournalierController.php';
 require_once __DIR__ . '/../model/MaterielController.php';
 require_once __DIR__ . '/../model/MateriauxOutilsController.php';
+require_once __DIR__ . '/../model/MaterielBureauController.php';
 
 // StationsServiceController sera inclus uniquement si nécessaire
 
@@ -302,6 +303,36 @@ switch ($endpoint) {
     case 'ajouter_materiau_outil':
         if ($method === 'POST') {
             $controller = new MateriauxOutilsController();
+            $controller->ajouter();
+        } else {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        }
+        break;
+
+    case 'materiel_bureau':
+        if ($method === 'GET') {
+            $controller = new MaterielBureauController();
+            $controller->getAll();
+        } else {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        }
+        break;
+
+    case 'materiel_bureau_categories':
+        if ($method === 'GET') {
+            $controller = new MaterielBureauController();
+            $controller->getCategories();
+        } else {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        }
+        break;
+
+    case 'ajouter_materiel_bureau':
+        if ($method === 'POST') {
+            $controller = new MaterielBureauController();
             $controller->ajouter();
         } else {
             http_response_code(405);
