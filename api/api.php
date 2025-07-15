@@ -14,6 +14,7 @@ require_once __DIR__ . '/../model/SoldeController.php';
 require_once __DIR__ . '/../model/StationsServiceController.php';
 require_once __DIR__ . '/../model/CarburantUtilisationController.php';
 require_once __DIR__ . '/../model/HistoriqueBonsController.php';
+require_once __DIR__ . '/../model/DemandesCarburantAttenteController.php';
 
 // StationsServiceController sera inclus uniquement si nécessaire
 
@@ -128,28 +129,8 @@ switch ($endpoint) {
 
     case 'demandes_carburant_attente':
         if ($method === 'GET') {
-            try {
-                $pdo = Database::getConnection();
-                // Recherche insensible à la casse sur precision_fiche
-                $sql = "SELECT * FROM fiche 
-                    WHERE approuve = 0 
-                    AND LOWER(precision_fiche) LIKE :motclef
-                    ORDER BY date_creat_fiche DESC";
-                $stmt = $pdo->prepare($sql);
-                $stmt->execute(['motclef' => '%carburant%']);
-                $demandes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-                echo json_encode([
-                    'status' => 'success',
-                    'data' => $demandes
-                ]);
-            } catch (Exception $e) {
-                http_response_code(500);
-                echo json_encode([
-                    'status' => 'error',
-                    'message' => "Erreur lors de la récupération des demandes : " . $e->getMessage()
-                ]);
-            }
+            $controller = new DemandesCarburantAttenteController();
+            $controller->getAll();
         } else {
             http_response_code(405);
             echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
