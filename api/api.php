@@ -1,5 +1,9 @@
 <?php
 
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 header('Content-Type: application/json');
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
@@ -22,6 +26,7 @@ require_once __DIR__ . '/../model/TypeEnginController.php';
 require_once __DIR__ . '/../model/SoldeEvolutionController.php';
 require_once __DIR__ . '/../model/PlanningController.php';
 require_once __DIR__ . '/../model/RapportJournalierController.php';
+require_once __DIR__ . '/../model/MaterielController.php';
 
 // StationsServiceController sera inclus uniquement si nécessaire
 
@@ -237,6 +242,36 @@ switch ($endpoint) {
         } elseif ($method === 'POST' || $method === 'PUT' || $method === 'PATCH') {
             $controller = new RapportJournalierController();
             $controller->update();
+        } else {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        }
+        break;
+
+    case 'materiels':
+        if ($method === 'GET') {
+            $controller = new MaterielController();
+            $controller->getAll();
+        } else {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        }
+        break;
+
+    case 'materiel_categories':
+        if ($method === 'GET') {
+            $controller = new MaterielController();
+            $controller->getCategories();
+        } else {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        }
+        break;
+
+    case 'ajouter_materiel':
+        if ($method === 'POST') {
+            $controller = new MaterielController();
+            $controller->ajouter();
         } else {
             http_response_code(405);
             echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
