@@ -27,6 +27,7 @@ require_once __DIR__ . '/../model/SoldeEvolutionController.php';
 require_once __DIR__ . '/../model/PlanningController.php';
 require_once __DIR__ . '/../model/RapportJournalierController.php';
 require_once __DIR__ . '/../model/MaterielController.php';
+require_once __DIR__ . '/../model/MateriauxOutilsController.php';
 
 // StationsServiceController sera inclus uniquement si nécessaire
 
@@ -271,6 +272,36 @@ switch ($endpoint) {
     case 'ajouter_materiel':
         if ($method === 'POST') {
             $controller = new MaterielController();
+            $controller->ajouter();
+        } else {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        }
+        break;
+
+    case 'materiaux_outils':
+        if ($method === 'GET') {
+            $controller = new MateriauxOutilsController();
+            $controller->getAll();
+        } else {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        }
+        break;
+
+    case 'materiaux_outils_categories':
+        if ($method === 'GET') {
+            $controller = new MateriauxOutilsController();
+            $controller->getCategories();
+        } else {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        }
+        break;
+
+    case 'ajouter_materiau_outil':
+        if ($method === 'POST') {
+            $controller = new MateriauxOutilsController();
             $controller->ajouter();
         } else {
             http_response_code(405);
