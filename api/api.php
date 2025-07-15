@@ -19,6 +19,7 @@ require_once __DIR__ . '/../model/VehiculeController.php';
 require_once __DIR__ . '/../model/ChauffeurController.php';
 require_once __DIR__ . '/../model/MarqueController.php';
 require_once __DIR__ . '/../model/TypeEnginController.php';
+require_once __DIR__ . '/../model/SoldeEvolutionController.php';
 
 // StationsServiceController sera inclus uniquement si nécessaire
 
@@ -105,16 +106,8 @@ switch ($endpoint) {
 
     case 'solde_evolution':
         if ($method === 'GET') {
-            // Exemple statique, à adapter
-            echo json_encode([
-                ['jour' => 1, 'solde' => 350000],
-                ['jour' => 5, 'solde' => 420000],
-                ['jour' => 10, 'solde' => 380000],
-                ['jour' => 15, 'solde' => 20000],
-                ['jour' => 20, 'solde' => 500000],
-                ['jour' => 25, 'solde' => 450000],
-                ['jour' => 30, 'solde' => 520000],
-            ]);
+            $controller = new SoldeEvolutionController();
+            $controller->getEvolution();
         } else {
             http_response_code(405);
             echo json_encode(['error' => 'Method not allowed']);
