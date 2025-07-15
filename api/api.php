@@ -33,6 +33,7 @@ require_once __DIR__ . '/../model/InventaireStockController.php';
 require_once __DIR__ . '/../model/StockController.php';
 require_once __DIR__ . '/../model/BonEntreeController.php';
 require_once __DIR__ . '/../model/ChantierController.php';
+require_once __DIR__ . '/../model/BonSortieController.php';
 
 // StationsServiceController sera inclus uniquement si nécessaire
 
@@ -439,6 +440,36 @@ switch ($endpoint) {
         if ($method === 'GET') {
             $controller = new BonEntreeController();
             $controller->getCategories();
+        } else {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        }
+        break;
+
+    case 'bons_sortie':
+        if ($method === 'GET') {
+            $controller = new BonSortieController();
+            $controller->getAll();
+        } else {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        }
+        break;
+
+    case 'ajouter_bon_sortie':
+        if ($method === 'POST') {
+            $controller = new BonSortieController();
+            $controller->ajouter();
+        } else {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        }
+        break;
+
+    case 'bon_sortie_motifs':
+        if ($method === 'GET') {
+            $controller = new BonSortieController();
+            $controller->getMotifs();
         } else {
             http_response_code(405);
             echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
