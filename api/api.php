@@ -31,6 +31,8 @@ require_once __DIR__ . '/../model/MateriauxOutilsController.php';
 require_once __DIR__ . '/../model/MaterielBureauController.php';
 require_once __DIR__ . '/../model/InventaireStockController.php';
 require_once __DIR__ . '/../model/StockController.php';
+require_once __DIR__ . '/../model/BonEntreeController.php';
+require_once __DIR__ . '/../model/ChantierController.php';
 
 // StationsServiceController sera inclus uniquement si nécessaire
 
@@ -396,6 +398,47 @@ switch ($endpoint) {
         if ($method === 'POST') {
             $controller = new StockController();
             $controller->ajouterOuModifier();
+        } else {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        }
+        break;
+
+    case 'bons_entree':
+        if ($method === 'GET') {
+            $controller = new BonEntreeController();
+            $controller->getAll();
+        } else {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        }
+        break;
+
+    case 'ajouter_bon_entree':
+        if ($method === 'POST') {
+            $controller = new BonEntreeController();
+            $controller->ajouter();
+        } else {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        }
+        break;
+
+    case 'chantiers':
+        if ($method === 'GET') {
+            $controller = new ChantierController();
+            $controller->getAll();
+        } else {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        }
+        break;
+
+
+    case 'bon_entree_categories':
+        if ($method === 'GET') {
+            $controller = new BonEntreeController();
+            $controller->getCategories();
         } else {
             http_response_code(405);
             echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
