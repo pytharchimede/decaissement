@@ -21,6 +21,7 @@ require_once __DIR__ . '/../model/MarqueController.php';
 require_once __DIR__ . '/../model/TypeEnginController.php';
 require_once __DIR__ . '/../model/SoldeEvolutionController.php';
 require_once __DIR__ . '/../model/PlanningController.php';
+require_once __DIR__ . '/../model/RapportJournalierController.php';
 
 // StationsServiceController sera inclus uniquement si nécessaire
 
@@ -223,6 +224,19 @@ switch ($endpoint) {
         } elseif ($method === 'POST') {
             $controller = new PlanningController();
             $controller->ajouter();
+        } else {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        }
+        break;
+
+    case 'rapport_journalier':
+        if ($method === 'GET') {
+            $controller = new RapportJournalierController();
+            $controller->getAll();
+        } elseif ($method === 'POST' || $method === 'PUT' || $method === 'PATCH') {
+            $controller = new RapportJournalierController();
+            $controller->update();
         } else {
             http_response_code(405);
             echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
