@@ -17,6 +17,13 @@ class DemandeEssence
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
+    public function getByCodeBon($codeBon)
+    {
+        $stmt = $this->pdo->prepare("SELECT * FROM demande_essence WHERE code_bon = ?");
+        $stmt->execute([$codeBon]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
     // Ajouter une nouvelle demande
     public function create($data)
     {

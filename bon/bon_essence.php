@@ -1,10 +1,12 @@
 <?php
 require_once '../model/Database.php';
 require_once '../model/Fiche.php';
+require_once '../model/DemandeEssence.php';
 require_once '../../phpqrcode/qrlib.php';
 
 $pdo = (new Database())->getConnection();
 $ficheObj = new Fiche($pdo);
+$demandeObj = new DemandeEssence($pdo);
 
 $id = $_GET['id_bon'] ?? null;
 
@@ -13,8 +15,16 @@ if (!$id) {
     exit;
 }
 
+$demandeEssence = $demandeObj->getByCodeBon($id);
+if (!$id) {
+    echo "Bon inexistant.";
+    exit;
+}
+
+$num_fiche = $demandeEssence['num_fiche'];
+
 // Récupération de la fiche via la classe
-$fiche = $ficheObj->getByNumFiche($id);
+$fiche = $ficheObj->getByNumFiche($num_fiche);
 
 if (!$fiche) {
     echo "Bon introuvable.";
