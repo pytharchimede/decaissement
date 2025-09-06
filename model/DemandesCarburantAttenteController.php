@@ -63,7 +63,7 @@ class DemandesCarburantAttenteController
         // 2. Approuver
         $ficheObj->approveFicheByNum($num_fiche, $secur);
 
-        // 3. Valider
+        // 3. Valider 
         $success = $ficheObj->validerFicheByNum($num_fiche, $secur, $adresse_ip, $port);
 
         if ($success) {

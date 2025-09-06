@@ -72,7 +72,7 @@ if ($success) {
     $result = $whatsapp->sendCarburantBon($whatsappNumber, $nom_demandeur, $code_bon);
 
     // Numéro du gérant (format 22507XXXXXXXX)
-    $numeroGerant = "225050544577666"; // À remplacer par le vrai numéro
+    $numeroGerant = "2250788202420"; // À remplacer par le vrai numéro
 
     // Envoi du SMS au gérant avec tous les détails du bon
     $smsSender->sendBonEssenceToGerant(

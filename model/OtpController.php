@@ -72,12 +72,12 @@ class OtpController
         $station_id = $station['id'];
 
         // 2. (Désactivé) Envoi OTP WhatsApp
-        // require_once __DIR__ . '/WhatsAppSMS.php';
-        // $twilioSid = "...";
-        // $twilioToken = "...";
-        // $whatsappFrom = "...";
-        // $whatsapp = new WhatsAppSMS($twilioSid, $twilioToken, $whatsappFrom);
-        // $response = $whatsapp->sendOtpRechargeCarburant($telephone, $nom, $otp);
+        require_once __DIR__ . '/WhatsAppSMS.php';
+        $twilioSid = "...";
+        $twilioToken = "...";
+        $whatsappFrom = "...";
+        $whatsapp = new WhatsAppSMS($twilioSid, $twilioToken, $whatsappFrom);
+        $response = $whatsapp->sendOtpRechargeCarburant($telephone, $nom, $otp);
 
         // 3. Enregistrement en BDD
         try {
