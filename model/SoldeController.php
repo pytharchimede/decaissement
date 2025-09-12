@@ -13,7 +13,7 @@ class SoldeController
             $totalRecharge = $stmt->fetch(PDO::FETCH_ASSOC)['total_recharge'] ?? 0;
 
             // Total consommé
-            $stmt = $pdo->query("SELECT SUM(montant) as total_consomme FROM demande_essence WHERE desactive = 0");
+            $stmt = $pdo->query("SELECT SUM(montant) as total_consomme FROM demande_essence WHERE desactive = 0 AND img_recu_station!=''");
             $totalConsomme = $stmt->fetch(PDO::FETCH_ASSOC)['total_consomme'] ?? 0;
 
             // Dernier crédit validé

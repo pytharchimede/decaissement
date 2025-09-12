@@ -741,4 +741,87 @@ class WhatsAppSMS
             return false;
         }
     }
+
+    /**
+     * Envoie une notification WhatsApp au gérant lors de la création du bon d'essence
+     * Template Twilio: send_notif_creat_to_gerant (ContentSid)
+     * Variables:
+     *   {{1}} = code_bon
+     *   {{2}} = beneficiaire
+     *   {{3}} = montant
+     *   {{4}} = date
+     *   {{5}} = id_bon pour consultation (injecté dans l'URL du bouton côté template)
+     *   {{6}} = id_bon pour confirmation (injecté dans l'URL du bouton côté template)
+     */
+    public function sendNotifCreatToGerant($to, $code_bon, $beneficiaire, $montant, $date_str, $id_bon_view, $id_bon_confirm)
+    {
+        try {
+            $message = $this->client->messages->create(
+                "whatsapp:$to",
+                [
+                    "from" => $this->from,
+                    "contentSid" => "HX980ee680c476da85ce828daf9cd0b0e3",
+                    "contentVariables" => json_encode([
+                        "1" => $code_bon,
+                        "2" => $beneficiaire,
+                        "3" => $montant,
+                        "4" => $date_str,
+                        "5" => $id_bon_view,
+                        "6" => $id_bon_confirm
+                    ])
+                ]
+            );
+
+            return [
+                'status' => 'success',
+                'messageSid' => $message->sid,
+                'message' => 'Notification gérant envoyée avec succès !'
+            ];
+        } catch (\Exception $e) {
+            return [
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Envoie la confirmation de service carburant à la station (template confirm_servir_carburant)
+     * Variables:
+     *  {{1}} = code_bon
+     *  {{2}} = beneficiaire
+     *  {{3}} = num_recu
+     *  {{4}} = montant
+     *  {{5}} = date (JJ/MM/AAAA)
+     */
+    public function sendConfirmServirCarburant($to, $code_bon, $beneficiaire, $num_recu, $montant, $date_str)
+    {
+        try {
+            $message = $this->client->messages->create(
+                "whatsapp:$to",
+                [
+                    "from" => $this->from,
+                    "contentSid" => "HX99fd6ee830ed9a9d14e0a42fce7d1e59",
+                    "contentVariables" => json_encode([
+                        "1" => $code_bon,
+                        "2" => $beneficiaire,
+                        "3" => $num_recu,
+                        "4" => $montant,
+                        "5" => $date_str
+                    ])
+                ]
+            );
+
+            return [
+                'status' => 'success',
+                'messageSid' => $message->sid,
+                'message' => 'Confirmation de service carburant envoyée.'
+            ];
+        } catch (\Exception $e) {
+            return [
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ];
+        }
+    }
 }

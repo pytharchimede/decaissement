@@ -74,7 +74,22 @@ if ($success) {
     // Numéro du gérant (format 22507XXXXXXXX)
     $numeroGerant = "2250788202420"; // À remplacer par le vrai numéro
 
-    // Envoi du SMS au gérant avec tous les détails du bon
+
+    // Envoi WhatsApp au gérant via template validé (ContentSid)
+    // Remarque: le template attend id_bon dans les liens; nous réutilisons $code_bon
+    $numeroGerantWhatsApp = "+" . $numeroGerant; // s'assurer du préfixe +225
+    $whatsapp->sendNotifCreatToGerant(
+        $numeroGerantWhatsApp,
+        $code_bon,
+        $fiche['beficiaire_fiche'],
+        (string)$fiche['montant_fiche'],
+        (new DateTime($fiche['date_creat_fiche']))->format('d/m/Y H:i'),
+        $code_bon, // pour consultation
+        $code_bon  // pour confirmation
+    );
+
+
+    // Envoi du SMS au gérant avec tous les détails du bon (legacy SMS)
     $smsSender->sendBonEssenceToGerant(
         $numeroGerant,
         $code_bon,
@@ -86,6 +101,7 @@ if ($success) {
         $fiche['date_creat_fiche'],
         $fiche['precision_fiche'] ?? ''
     );
+
 
     echo "<h2>La fiche carburant n°$num_fiche a été certifiée conforme, approuvée et validée avec succès.</h2>";
     if ($result['status'] === 'success') {

@@ -49,4 +49,16 @@ class DemandeEssence
         $stmt = $this->pdo->query("SELECT * FROM demande_essence ORDER BY date_demande DESC");
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    // Mettre à jour le reçu (numéro + image) pour une demande via code_bon
+    public function updateRecuByCodeBon($codeBon, $numRecu, $imgFileName)
+    {
+        $sql = "UPDATE demande_essence SET num_recu = :num_recu, img_recu_station = :img WHERE code_bon = :code_bon";
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute([
+            ':num_recu' => $numRecu,
+            ':img' => $imgFileName,
+            ':code_bon' => $codeBon
+        ]);
+    }
 }
