@@ -126,25 +126,30 @@ class SoldeEvolutionController
             }
 
             // 6) Construction du résultat et solde évolutif
-            $solde = 0.0;
             $result = [];
+            $cumulRecharge = 0.0;   // cumul des rechargements
+            $cumulServi    = 0.0;   // cumul des sorties servies
             foreach ($allDates as $d) {
                 $rechargement   = $inByDate[$d]       ?? 0.0;
                 $pending        = $pendingByDate[$d]  ?? 0.0; // demandes non servies du jour
                 $sortieServie   = $servedByDate[$d]   ?? 0.0; // demandes servies du jour
-                $entreeNette    = $rechargement - $pending;   // règle demandée
+                $entreeNette    = $rechargement - $pending;   // indicateur quotidien, pas utilisé pour le solde
 
-                // solde évolutif (cumul): (entrées nettes − sorties servies)
-                $solde += ($entreeNette - $sortieServie);
+                // Cumuls indépendants des non-servis
+                $cumulRecharge += $rechargement;
+                $cumulServi    += $sortieServie;
+                $solde = $cumulRecharge - $cumulServi;
 
                 $result[] = [
-                    'date'               => $d,
-                    'rechargement'       => $rechargement,
-                    'entree_brute'       => $rechargement,     // pour compatibilité
-                    'demande_non_servie' => $pending,
-                    'entree_nette'       => $entreeNette,
-                    'sortie_servie'      => $sortieServie,
-                    'solde_evolutif'     => $solde
+                    'date'                 => $d,
+                    'rechargement'         => $rechargement,
+                    'entree_brute'         => $rechargement,     // pour compatibilité
+                    'demande_non_servie'   => $pending,
+                    'entree_nette'         => $entreeNette,
+                    'sortie_servie'        => $sortieServie,
+                    'cumul_rechargement'   => $cumulRecharge,
+                    'cumul_sortie_servie'  => $cumulServi,
+                    'solde_evolutif'       => $solde
                 ];
             }
 
