@@ -77,6 +77,16 @@ switch ($endpoint) {
         }
         break;
 
+    case 'historique_rechargements':
+        if ($method === 'GET') {
+            $controller = new RechargementCarburantController();
+            $controller->getHistorique();
+        } else {
+            http_response_code(405);
+            echo json_encode(['error' => 'Method not allowed']);
+        }
+        break;
+
     case 'confirmation_carburant':
         if ($method === 'POST') {
             $controller = new OtpController();
