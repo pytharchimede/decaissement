@@ -184,6 +184,22 @@ document.addEventListener("DOMContentLoaded", function () {
   document.getElementById("chantier").addEventListener("change", function () {
     const chantier = this.value;
 
+    // Détection par code chantier (texte de l'option), car la valeur est l'ID
+    const optText = (this.options[this.selectedIndex]?.text || "").trim();
+    console.log("[chantier change] value=", chantier, " text=", optText);
+    const normalized = optText.toUpperCase().replace(/\s+/g, "");
+    const shouldRedirect =
+      normalized.startsWith("CH058") || normalized.startsWith("CH059");
+    if (optText && shouldRedirect) {
+      console.log(
+        "Redirection vers formulaire projet pour le chantier:",
+        optText
+      );
+      window.location.href =
+        "https://projet.fidest.ci/decaissement/formulaire_demande_decaissement.php";
+      return; // Stoppe le reste du handler
+    }
+
     if (chantier !== "") {
       // Activer le select "motif_select"
       document.getElementById("motif_select").removeAttribute("disabled");

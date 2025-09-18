@@ -11,7 +11,7 @@ include 'headers/header_formulaire_demande_decaissement.php';
     <!-- Lien vers Bootstrap CSS -->
     <link href="plugins/css/bootstrap/bootstrap.min.css" rel="stylesheet">
     <!-- FontAwesome CSS -->
-    <link rel="stylesheet" href="plugins/css/fontawesome/all.min.css" integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="plugins/css/fontawesome/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="css_form/style.css" rel="stylesheet">
 </head>
 
@@ -385,6 +385,7 @@ include 'headers/header_formulaire_demande_decaissement.php';
     <script src="plugins/js/fontawesome/all.min.js"></script>
     <script src="js_form/form_control.js"></script>
     <script src="js_form/script.js"></script>
+
 </body>
 
 </html>
