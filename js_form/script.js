@@ -188,8 +188,15 @@ document.addEventListener("DOMContentLoaded", function () {
     const optText = (this.options[this.selectedIndex]?.text || "").trim();
     console.log("[chantier change] value=", chantier, " text=", optText);
     const normalized = optText.toUpperCase().replace(/\s+/g, "");
-    const shouldRedirect =
-      normalized.startsWith("CH058") || normalized.startsWith("CH059");
+
+    // Vérifie si c'est un chantier CH0XX avec XX > 57
+    let shouldRedirect = false;
+    const chMatch = normalized.match(/^CH0(\d+)/);
+    if (chMatch) {
+      const chNumber = parseInt(chMatch[1], 10);
+      shouldRedirect = chNumber > 57;
+    }
+
     if (optText && shouldRedirect) {
       console.log(
         "Redirection vers formulaire projet pour le chantier:",
