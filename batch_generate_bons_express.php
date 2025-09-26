@@ -47,6 +47,7 @@ function parseCarburantPrecision(?string $text): array
         'matricule' => null,
         'telephone' => null,
         'quantite' => null,
+        'unite' => null,
         'carburant' => null,
         'frais_route' => null,
         'solde' => null,
@@ -63,8 +64,9 @@ function parseCarburantPrecision(?string $text): array
     if (preg_match('/T[ée]l[ée]?phone\s*:\s*([^\r\n]+)/mi', $t, $m) || preg_match('/Tel\s*:\s*([^\r\n]+)/mi', $t, $m)) {
         $res['telephone'] = trim($m[1]);
     }
-    if (preg_match('/Quantit[ée]\s*charg[ée]e?\s*:\s*([0-9]+(?:[\.,][0-9]+)?)\s*(L|litres?)?/mi', $t, $m)) {
+    if (preg_match('/Quantit[ée]\s*charg[ée]e?\s*:\s*([0-9]+(?:[\.,][0-9]+)?)\s*(m3|m³|L|litres?)?/mi', $t, $m)) {
         $res['quantite'] = (float)str_replace(',', '.', $m[1]);
+        $res['unite'] = isset($m[2]) && $m[2] !== '' ? strtolower($m[2]) : null;
     }
     if (preg_match('/(Carburant|Type)\s*:\s*([^\r\n]+)/mi', $t, $m)) {
         $res['carburant'] = trim($m[2]);
@@ -271,12 +273,14 @@ if ($action === 'generate') {
             }
 
             // Construire les données du bon
+            $parsed = parseCarburantPrecision($fiche['precision_fiche'] ?? '');
+            $qte = is_array($parsed) && isset($parsed['quantite']) && $parsed['quantite'] !== null ? (float)$parsed['quantite'] : 0;
             $data = [
                 'num_fiche'        => $fiche['num_fiche'],
                 'code_bon'         => $code_bon,
                 'nom_beneficiaire' => $fiche['beficiaire_fiche'],
                 'vehicule'         => $fiche['designation_fiche'] ?? '',
-                'quantite'         => 0,
+                'quantite'         => $qte,
                 'montant'          => $fiche['montant_fiche'],
                 'date_demande'     => $fiche['date_creat_fiche'],
                 'motif'            => $fiche['precision_fiche'] ?? '',
@@ -407,6 +411,7 @@ if ($action === 'generate') {
                     <button class="px-3 py-2 bg-gray-800 text-white rounded" type="submit">Exécuter la requête</button>
                     <button type="button" class="px-3 py-2 bg-gray-200 text-gray-800 rounded" id="resetSql">Réinitialiser</button>
                     <button class="px-3 py-2 bg-indigo-600 text-white rounded" name="action" value="analyse" title="Analyser les fiches carburant (parse, héritiers)">Analyser</button>
+                    <a class="px-3 py-2 bg-yellow-300 text-black rounded font-semibold" href="recap_carburant.php?scope=batch" title="Ouvrir le récap/analytique carburant (fiches filtrées)" target="_blank">Récap carburant</a>
                 </div>
             </form>
         </div>
@@ -494,7 +499,12 @@ if ($action === 'generate') {
                                     <td class="font-mono text-gray-700"><?= htmlspecialchars($f['num_fiche']) ?></td>
                                     <td><?= htmlspecialchars($f['beficiaire_fiche']) ?></td>
                                     <td><?= htmlspecialchars($f['designation_fiche'] ?? '') ?></td>
-                                    <td><?= $p['quantite'] !== null ? htmlspecialchars((string)$p['quantite']) : '-' ?></td>
+                                    <td>
+                                        <?php if ($p['quantite'] !== null): ?>
+                                            <?= htmlspecialchars((string)$p['quantite']) ?><?= $p['unite'] ? ' ' . htmlspecialchars($p['unite']) : '' ?>
+                                            <?php else: ?>-
+                                        <?php endif; ?>
+                                    </td>
                                     <td><?= $p['carburant'] !== null ? htmlspecialchars($p['carburant']) : '-' ?></td>
                                     <td><?= $p['frais_route'] !== null ? number_format((int)$p['frais_route'], 0, ',', ' ') : '-' ?></td>
                                     <td><?= $p['solde'] !== null ? number_format((int)$p['solde'], 0, ',', ' ') : '-' ?></td>
