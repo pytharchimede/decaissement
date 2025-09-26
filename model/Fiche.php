@@ -9,6 +9,49 @@ class Fiche
         $this->pdo = $pdo;
     }
 
+    /**
+     * Récupère le dernier code d'autorisation EXPRESS pour un préfixe donné
+     * Exemple de préfixe: EXP-DEP
+     */
+    public function getLastExpressAuthCode(string $prefix = 'EXP-DEP')
+    {
+        // On suppose un format PREFIX-XXXX avec XXXX numérique zéro-rempli
+        $like = $prefix . '-%';
+        $sql = "SELECT code_autorisation_feb FROM fiche WHERE code_autorisation_feb LIKE :like ORDER BY code_autorisation_feb DESC LIMIT 1";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindParam(':like', $like, PDO::PARAM_STR);
+        $stmt->execute();
+        return $stmt->fetchColumn();
+    }
+
+    /**
+     * Génère un code d'autorisation EXPRESS incrémental caractéristique du chantier dépollution
+     * Format: {prefix}-0001 (ex: EXP-DEP-0001)
+     */
+    public function generateExpressAuthCode(string $prefix = 'EXP-DEP')
+    {
+        $last = $this->getLastExpressAuthCode($prefix);
+        $nextNumber = 1;
+        if ($last) {
+            // Extraire la partie numérique après le dernier '-'
+            $pos = strrpos($last, '-');
+            if ($pos !== false) {
+                $num = substr($last, $pos + 1);
+                $num = (int) preg_replace('/\D/', '', $num);
+                $nextNumber = $num + 1;
+            }
+        }
+
+        // Générer un code et vérifier son unicité par sécurité
+        do {
+            $code = sprintf('%s-%04d', $prefix, $nextNumber);
+            $exists = $this->getByAuthCode($code);
+            $nextNumber++;
+        } while (!empty($exists));
+
+        return $code;
+    }
+
     public function insertFiche($data)
     {
         // Vérifier et nettoyer les données pour éviter les erreurs

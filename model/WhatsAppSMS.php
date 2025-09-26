@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../twilio/src/Twilio/autoload.php';
 
 use Twilio\Rest\Client;
+use Twilio\Exceptions\RestException;
 
 class WhatsAppSMS
 {
@@ -260,10 +261,17 @@ class WhatsAppSMS
                 'message' => 'Message envoyé avec succès !'
             ];
         } catch (\Exception $e) {
-            return [
+            $err = [
                 'status' => 'error',
                 'message' => $e->getMessage()
             ];
+            if ($e instanceof RestException) {
+                $err['statusCode'] = $e->getStatusCode();
+                $err['errorCode'] = $e->getCode();
+                $err['moreInfo'] = $e->getMoreInfo();
+            }
+            error_log('WA sendCarburantManageCallToAction failed: ' . json_encode($err));
+            return $err;
         }
     }
 
@@ -301,10 +309,17 @@ class WhatsAppSMS
                 'message' => 'Message envoyé avec succès !'
             ];
         } catch (\Exception $e) {
-            return [
+            $err = [
                 'status' => 'error',
                 'message' => $e->getMessage()
             ];
+            if ($e instanceof RestException) {
+                $err['statusCode'] = $e->getStatusCode();
+                $err['errorCode'] = $e->getCode();
+                $err['moreInfo'] = $e->getMoreInfo();
+            }
+            error_log('WA sendReparationManageCallToAction failed: ' . json_encode($err));
+            return $err;
         }
     }
 
@@ -584,10 +599,17 @@ class WhatsAppSMS
                 'message' => 'Message envoyé avec succès !'
             ];
         } catch (\Exception $e) {
-            return [
+            $err = [
                 'status' => 'error',
                 'message' => $e->getMessage()
             ];
+            if ($e instanceof RestException) {
+                $err['statusCode'] = $e->getStatusCode();
+                $err['errorCode'] = $e->getCode();
+                $err['moreInfo'] = $e->getMoreInfo();
+            }
+            error_log('WA sendUrgentReparationCallToAction failed: ' . json_encode($err));
+            return $err;
         }
     }
 

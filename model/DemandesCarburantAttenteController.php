@@ -1,5 +1,6 @@
 <?php
 // filepath: c:\wamp\www\decaissement\model\DemandesCarburantAttenteController.php
+require_once __DIR__ . '/Database.php';
 
 class DemandesCarburantAttenteController
 {
@@ -67,8 +68,81 @@ class DemandesCarburantAttenteController
         $success = $ficheObj->validerFicheByNum($num_fiche, $secur, $adresse_ip, $port);
 
         if ($success) {
+            // Récupérer infos de la fiche
+            $fiche = $ficheObj->getByNumFiche($num_fiche);
+            if (!$fiche) {
+                http_response_code(404);
+                echo json_encode(['status' => 'error', 'message' => 'Fiche non trouvée après validation']);
+                return;
+            }
+
+            // Générer le code_bon (même codification que valider_fiche_carburant.php)
+            $date = new \DateTime($fiche['date_creat_fiche']);
+            $code_bon = 'BE-' . $date->format('ym') . '-' . substr(str_pad($num_fiche, 5, '0', STR_PAD_LEFT), -5);
+
+            // Créer l'enregistrement demande_essence
+            require_once __DIR__ . '/DemandeEssence.php';
+            $demandeEssenceObj = new DemandeEssence($this->pdo);
+            $data = [
+                'num_fiche'        => $num_fiche,
+                'code_bon'         => $code_bon,
+                'nom_beneficiaire' => $fiche['beficiaire_fiche'],
+                'vehicule'         => $fiche['designation_fiche'] ?? '',
+                'quantite'         => 0,
+                'montant'          => $fiche['montant_fiche'],
+                'date_demande'     => $fiche['date_creat_fiche'],
+                'motif'            => $fiche['precision_fiche'] ?? '',
+                'dg_nom'           => 'M. Alex Braud'
+            ];
+            $demandeEssenceObj->create($data);
+
+            // Envoi WhatsApp (template) au bénéficiaire et à la gérante
+            require_once __DIR__ . '/WhatsAppSMS.php';
+            $sid = "ACded19f6cd55b2ba3d18c13f438f1e878"; // SID Twilio
+            $token = "7f1136b112e6d8cb4a6af94223d0872e"; // TOKEN Twilio
+            $from = "whatsapp:+2250711048002"; // Numéro WhatsApp Twilio
+            $whatsapp = new WhatsAppSMS($sid, $token, $from);
+
+            // Bénéficiaire
+            $whatsappNumber = "+225" . $fiche['tel_beneficiaire_fiche'];
+            $nom_demandeur = $fiche['beficiaire_fiche'];
+            $resultBon = $whatsapp->sendCarburantBon($whatsappNumber, $nom_demandeur, $code_bon);
+
+            // Gérante
+            $numeroGerant = "2250788202420"; // TODO: configurer via paramètres si besoin
+            $numeroGerantWhatsApp = "+" . $numeroGerant;
+            $whatsapp->sendNotifCreatToGerant(
+                $numeroGerantWhatsApp,
+                $code_bon,
+                $fiche['beficiaire_fiche'],
+                (string)$fiche['montant_fiche'],
+                (new \DateTime($fiche['date_creat_fiche']))->format('d/m/Y H:i'),
+                $code_bon,
+                $code_bon
+            );
+
+            // SMS legacy au gérant
+            require_once __DIR__ . '/SmsSender.php';
+            $smsSender = new SmsSender();
+            $smsSender->sendBonEssenceToGerant(
+                $numeroGerant,
+                $code_bon,
+                $num_fiche,
+                $fiche['beficiaire_fiche'],
+                $fiche['designation_fiche'] ?? '',
+                0,
+                $fiche['montant_fiche'],
+                $fiche['date_creat_fiche'],
+                $fiche['precision_fiche'] ?? ''
+            );
+
             http_response_code(200);
-            echo json_encode(['status' => 'success', 'message' => "Demande carburant $num_fiche acceptée"]);
+            echo json_encode([
+                'status' => 'success',
+                'message' => "Demande carburant $num_fiche acceptée; bon généré et notifications envoyées",
+                'code_bon' => $code_bon,
+                'whatsapp_benef' => is_array($resultBon) ? $resultBon : ['status' => ($resultBon ? 'success' : 'error')]
+            ]);
         } else {
             http_response_code(500);
             echo json_encode(['status' => 'error', 'message' => "Erreur lors de la validation de la fiche $num_fiche"]);
