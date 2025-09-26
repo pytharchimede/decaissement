@@ -1,7 +1,7 @@
 <?php
 
-require_once 'model/Database.php';
-require_once 'model/DemandeEssence.php';
+require_once __DIR__ . '/model/Database.php';
+require_once __DIR__ . '/model/DemandeEssence.php';
 
 $pdo = (new Database())->getConnection();
 $demandeEssenceObj = new DemandeEssence($pdo);

@@ -1,7 +1,7 @@
 <?php
-require_once 'model/Database.php';
-require_once 'model/DemandeEssence.php';
-require 'vendor/autoload.php'; // PhpSpreadsheet
+require_once __DIR__ . '/model/Database.php';
+require_once __DIR__ . '/model/DemandeEssence.php';
+require __DIR__ . '/vendor/autoload.php'; // PhpSpreadsheet
 
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;

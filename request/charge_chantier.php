@@ -1,8 +1,8 @@
 <?php
 session_start();
 
-include '../model/Database.php';
-include '../model/Chantier.php';
+require_once __DIR__ . '/../model/Database.php';
+require_once __DIR__ . '/../model/Chantier.php';
 
 // Initialisation de la connexion à la base de données
 $dataBaseObj = new Database();

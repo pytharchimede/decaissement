@@ -1,8 +1,8 @@
 <?php
-require_once '../model/Database.php';
-require_once '../model/Fiche.php';
-require_once '../model/DemandeEssence.php';
-require_once '../model/WhatsAppSMS.php';
+require_once __DIR__ . '/../model/Database.php';
+require_once __DIR__ . '/../model/Fiche.php';
+require_once __DIR__ . '/../model/DemandeEssence.php';
+require_once __DIR__ . '/../model/WhatsAppSMS.php';
 
 $pdo = (new Database())->getConnection();
 $ficheObj = new Fiche($pdo);

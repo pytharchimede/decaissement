@@ -1,8 +1,8 @@
 <?php
 
-require_once '../model/Database.php';
-require_once '../model/Operation.php';
-require_once '../model/Designation.php';
+require_once __DIR__ . '/../model/Database.php';
+require_once __DIR__ . '/../model/Operation.php';
+require_once __DIR__ . '/../model/Designation.php';
 
 $chantier_id = $_POST['chantier'];
 

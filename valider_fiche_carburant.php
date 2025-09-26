@@ -1,11 +1,11 @@
 <?php
 
 session_start();
-require_once 'model/Database.php';
-require_once 'model/Fiche.php';
-require_once 'model/WhatsAppSMS.php';
-require_once 'model/DemandeEssence.php';
-require_once 'model/SmsSender.php';
+require_once __DIR__ . '/model/Database.php';
+require_once __DIR__ . '/model/Fiche.php';
+require_once __DIR__ . '/model/WhatsAppSMS.php';
+require_once __DIR__ . '/model/DemandeEssence.php';
+require_once __DIR__ . '/model/SmsSender.php';
 
 
 if (!isset($_GET['num_fiche'])) {

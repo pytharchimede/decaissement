@@ -1,5 +1,5 @@
 <?php
-require_once '../model/WhatsAppSMS.php';
+require_once __DIR__ . '/../model/WhatsAppSMS.php';
 
 // Configuration Twilio
 $sid = "ACded19f6cd55b2ba3d18c13f438f1e878"; // Votre SID Twilio

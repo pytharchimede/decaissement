@@ -26,10 +26,10 @@ if (!isset($_SESSION['code_autorisation_feb']) || $_SESSION['code_autorisation_f
     exit();
 }
 
-include 'model/Database.php';
-include 'model/Affectation.php';
-include 'model/Service.php';
-include 'model/Fiche.php';
+require_once __DIR__ . '/../model/Database.php';
+require_once __DIR__ . '/../model/Affectation.php';
+require_once __DIR__ . '/../model/Service.php';
+require_once __DIR__ . '/../model/Fiche.php';
 
 $dataBaseObj = new Database();
 $pdo = $dataBaseObj->getConnection();
