@@ -64,9 +64,24 @@ function parseCarburantPrecision(?string $text): array
     if (preg_match('/T[ée]l[ée]?phone\s*:\s*([^\r\n]+)/mi', $t, $m) || preg_match('/Tel\s*:\s*([^\r\n]+)/mi', $t, $m)) {
         $res['telephone'] = trim($m[1]);
     }
-    if (preg_match('/Quantit[ée]\s*charg[ée]e?\s*:\s*([0-9]+(?:[\.,][0-9]+)?)\s*(m3|m³|L|litres?)?/mi', $t, $m)) {
+    // Quantité chargée : prend en compte m3, m³, L, litres, et variantes "mètres cube"
+    if (
+        preg_match('/Quantit[ée]\\s*charg[ée]e?\\s*:\\s*([0-9]+(?:[\\.,][0-9]+)?)\\s*([^\\r\\n]*)/mi', $t, $m)
+        || preg_match('/Quantit[^:]*charg[^:]*:\\s*([0-9]+(?:[\\.,][0-9]+)?)(?:\\s*([^\\r\\n]*))?/mi', $t, $m)
+    ) {
         $res['quantite'] = (float)str_replace(',', '.', $m[1]);
-        $res['unite'] = isset($m[2]) && $m[2] !== '' ? strtolower($m[2]) : null;
+        $uRaw = isset($m[2]) ? strtolower(trim($m[2])) : '';
+        $unit = null;
+        if ($uRaw !== '') {
+            if (preg_match('/\\bm3\\b|m³/', $uRaw)) {
+                $unit = 'm3';
+            } elseif (preg_match('/\\bl(itre|itres?)\\b|\\bl\\b/', $uRaw)) {
+                $unit = 'l';
+            } elseif (preg_match('/m[èe]tres?\\s*cubes?/', $uRaw)) {
+                $unit = 'm3';
+            }
+        }
+        $res['unite'] = $unit;
     }
     if (preg_match('/(Carburant|Type)\s*:\s*([^\r\n]+)/mi', $t, $m)) {
         $res['carburant'] = trim($m[2]);
@@ -500,10 +515,27 @@ if ($action === 'generate') {
                                     <td><?= htmlspecialchars($f['beficiaire_fiche']) ?></td>
                                     <td><?= htmlspecialchars($f['designation_fiche'] ?? '') ?></td>
                                     <td>
-                                        <?php if ($p['quantite'] !== null): ?>
-                                            <?= htmlspecialchars((string)$p['quantite']) ?><?= $p['unite'] ? ' ' . htmlspecialchars($p['unite']) : '' ?>
-                                            <?php else: ?>-
-                                        <?php endif; ?>
+                                        <?php
+                                        if ($p['quantite'] !== null) {
+                                            $qfmt = rtrim(rtrim(number_format((float)$p['quantite'], 2, ',', ' '), '0'), ',');
+                                            // Normalise l'unité pour l'affichage
+                                            $u = $p['unite'];
+                                            $uShow = '';
+                                            if ($u === 'm3') {
+                                                $uShow = ' m³';
+                                            } elseif ($u === 'l') {
+                                                $uShow = ' L';
+                                            } else {
+                                                // Défaut pro: si dotation purge, on affiche m³
+                                                if (isset($f['designation_fiche']) && stripos($f['designation_fiche'], 'Dotation carburant (50 l/j) purge') === 0) {
+                                                    $uShow = ' m³';
+                                                }
+                                            }
+                                            echo htmlspecialchars($qfmt . $uShow);
+                                        } else {
+                                            echo '-';
+                                        }
+                                        ?>
                                     </td>
                                     <td><?= $p['carburant'] !== null ? htmlspecialchars($p['carburant']) : '-' ?></td>
                                     <td><?= $p['frais_route'] !== null ? number_format((int)$p['frais_route'], 0, ',', ' ') : '-' ?></td>

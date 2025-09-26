@@ -13,6 +13,9 @@ $date_fin = $_GET['date_fin'] ?? '';
 $demandeur = $_GET['demandeur'] ?? '';
 $motif = $_GET['motif'] ?? '';
 $num_fiche = $_GET['num_fiche'] ?? '';
+// Objectifs (avec valeurs par défaut adaptées au chantier)
+$target_m3 = isset($_GET['target_m3']) && $_GET['target_m3'] !== '' ? (float)str_replace(',', '.', $_GET['target_m3']) : 4182.10;
+$target_trips = isset($_GET['target_trips']) && $_GET['target_trips'] !== '' ? (int)$_GET['target_trips'] : 218;
 
 // Construction de la requête dynamique (on joint fiche pour accéder à precision_fiche)
 $conditions = [];
@@ -118,7 +121,10 @@ function parseFieldsCombined(?string $motif, ?string $precision): array
     if (preg_match('/T[ée]l[ée]?phone\s*:\s*([^\r\n]+)/mi', $t, $m) || preg_match('/Tel\s*:\s*([^\r\n]+)/mi', $t, $m)) {
         $res['telephone'] = trim($m[1]);
     }
-    if (preg_match('/Quantit[ée]\s*charg[ée]e?\s*:\s*([0-9]+(?:[\.,][0-9]+)?)/mi', $t, $m)) {
+    // Quantité: tolérer colon facultatif et unités m3/m³/mètres cubes
+    if (preg_match('/Quantit[ée][^\r\n:]*:?\s*([0-9]+(?:[\.,][0-9]+)?)\s*(?:m3|m³|m[èe]tres?\s*cubes?)?/mi', $t, $m)) {
+        $res['quantite'] = (float) str_replace(',', '.', $m[1]);
+    } elseif (preg_match('/([0-9]+(?:[\.,][0-9]+)?)\s*(?:m3|m³|m[èe]tres?\s*cubes?)\b/mi', $t, $m)) {
         $res['quantite'] = (float) str_replace(',', '.', $m[1]);
     }
     if (preg_match('/Frais\s*de\s*route\s*:\s*([0-9\s\.,]+)/mi', $t, $m)) {
@@ -141,7 +147,11 @@ function parseQtyFromSources(?string $motif, ?string $precision): float
     if ($precision) $parts[] = (string)$precision;
     if (empty($parts)) return 0.0;
     $t = implode("\n", $parts);
-    if (preg_match('/Quantit[ée]\s*charg[ée]e?\s*:\s*([0-9]+(?:[\.,][0-9]+)?)/mi', $t, $m)) {
+    // Accepte "Quantité ... : 24", ou sans deux-points, et unités m3/m³/mètres cubes
+    if (preg_match('/Quantit[ée][^\r\n:]*:?\s*([0-9]+(?:[\.,][0-9]+)?)\s*(?:m3|m³|m[èe]tres?\s*cubes?)?/mi', $t, $m)) {
+        return (float)str_replace(',', '.', $m[1]);
+    }
+    if (preg_match('/([0-9]+(?:[\.,][0-9]+)?)\s*(?:m3|m³|m[èe]tres?\s*cubes?)\b/mi', $t, $m)) {
         return (float)str_replace(',', '.', $m[1]);
     }
     return 0.0;
@@ -151,14 +161,17 @@ function parseQtyFromSources(?string $motif, ?string $precision): float
 $totalMontant = 0;
 $totalBons = count($demandes);
 $totalQuantite = 0.0;
+$sumFraisRoute = 0;
+$sumSolde = 0;
 $totalLitresCarburant = $totalBons * 50; // règle métier
 $byDayMontant = [];
 $byDayQuantite = [];
 $byBenefMontant = [];
 foreach ($demandes as $d) {
     $m = (float)($d['montant'] ?? 0);
-    $q = isset($d['quantite']) && $d['quantite'] !== null && $d['quantite'] !== ''
-        ? (float)$d['quantite']
+    $qDb = $d['quantite'] ?? null;
+    $q = (is_numeric($qDb) && (float)$qDb > 0)
+        ? (float)$qDb
         : parseQtyFromSources($d['motif'] ?? '', $d['precision_fiche'] ?? '');
     $totalMontant += $m;
     $totalQuantite += $q;
@@ -170,12 +183,26 @@ foreach ($demandes as $d) {
     $bn = trim((string)($d['nom_beneficiaire'] ?? 'Inconnu'));
     if (!isset($byBenefMontant[$bn])) $byBenefMontant[$bn] = 0;
     $byBenefMontant[$bn] += $m;
+    // Agrégats Frais/Solde
+    $pfAgg = parseFieldsCombined($d['motif'] ?? '', $d['precision_fiche'] ?? '');
+    if (isset($pfAgg['frais_route']) && is_numeric($pfAgg['frais_route'])) $sumFraisRoute += (int)$pfAgg['frais_route'];
+    if (isset($pfAgg['solde']) && is_numeric($pfAgg['solde'])) $sumSolde += (int)$pfAgg['solde'];
 }
 ksort($byDayMontant);
 ksort($byDayQuantite);
 // Top bénéficiaires
 arsort($byBenefMontant);
 $topBenef = array_slice($byBenefMontant, 0, 7, true);
+
+// Objectifs: calculs dérivés
+$objTargetM3 = max(0.0, (float)$target_m3);
+$objTargetTrips = max(0, (int)$target_trips);
+$remainM3 = max(0.0, $objTargetM3 > 0 ? ($objTargetM3 - $totalQuantite) : 0.0);
+$remainTrips = max(0, $objTargetTrips > 0 ? ($objTargetTrips - $totalBons) : 0);
+$progressM3 = $objTargetM3 > 0 ? min(100.0, ($totalQuantite / $objTargetM3) * 100.0) : 0.0;
+$progressTrips = $objTargetTrips > 0 ? min(100.0, ($totalBons / $objTargetTrips) * 100.0) : 0.0;
+$avgM3PerTrip = $totalBons > 0 ? ($totalQuantite / $totalBons) : 0.0;
+$needAvgM3PerTrip = ($remainTrips > 0) ? ($remainM3 / $remainTrips) : 0.0;
 
 // Prépare données charts (labels + datasets)
 $chartDays = array_keys($byDayMontant);
@@ -189,7 +216,7 @@ $chartBenefMontants = array_values($topBenef);
 
 <head>
     <meta charset="UTF-8">
-    <title>Récap Carburant</title>
+    <title>Récap Transport - Depollution</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
@@ -251,6 +278,8 @@ $chartBenefMontants = array_values($topBenef);
             <input type="text" name="demandeur" value="<?= htmlspecialchars($demandeur) ?>" class="border rounded px-2 py-1 text-xs flex-1" placeholder="Demandeur">
             <input type="text" name="motif" value="<?= htmlspecialchars($motif) ?>" class="border rounded px-2 py-1 text-xs flex-1" placeholder="Motif">
             <input type="text" name="num_fiche" value="<?= htmlspecialchars($num_fiche) ?>" class="border rounded px-2 py-1 text-xs flex-1" placeholder="N° Fiche">
+            <input type="number" step="0.01" name="target_m3" value="<?= htmlspecialchars(number_format($target_m3, 2, '.', '')) ?>" class="border rounded px-2 py-1 text-xs w-28" placeholder="Obj. m³">
+            <input type="number" step="1" name="target_trips" value="<?= htmlspecialchars((string)$target_trips) ?>" class="border rounded px-2 py-1 text-xs w-28" placeholder="Obj. voyages">
             <button type="submit" class="bg-yellow-400 hover:bg-yellow-500 text-black px-4 py-1 rounded font-bold text-xs">Rechercher</button>
         </form>
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
@@ -285,6 +314,60 @@ $chartBenefMontants = array_values($topBenef);
                     class="bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1 rounded text-xs font-bold flex items-center gap-1 shadow">
                     <i class="fa-solid fa-file-csv"></i> Export CSV
                 </a>
+            </div>
+        </div>
+
+        <!-- Dépenses -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <div class="bg-white rounded-xl p-3 shadow border border-yellow-100">
+                <div class="text-xs text-gray-500">Dépenses carburant</div>
+                <div class="text-xl font-extrabold text-yellow-700"><?= number_format($totalMontant, 0, ',', ' ') ?> FCFA</div>
+            </div>
+            <div class="bg-white rounded-xl p-3 shadow border border-yellow-100">
+                <div class="text-xs text-gray-500">Frais de route</div>
+                <div class="text-xl font-extrabold text-yellow-700"><?= number_format($sumFraisRoute, 0, ',', ' ') ?> FCFA</div>
+            </div>
+            <div class="bg-white rounded-xl p-3 shadow border border-yellow-100">
+                <div class="text-xs text-gray-500">Solde</div>
+                <div class="text-xl font-extrabold text-yellow-700"><?= number_format($sumSolde, 0, ',', ' ') ?> FCFA</div>
+            </div>
+            <div class="bg-white rounded-xl p-3 shadow border border-yellow-100">
+                <div class="text-xs text-gray-500">Dépenses totales (estim.)</div>
+                <div class="text-xl font-extrabold text-yellow-700"><?= number_format($totalMontant + $sumFraisRoute + $sumSolde, 0, ',', ' ') ?> FCFA</div>
+            </div>
+        </div>
+
+        <!-- Objectifs & Avancement -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div class="bg-white rounded-xl p-4 shadow border border-yellow-100">
+                <div class="flex items-center justify-between">
+                    <div class="font-semibold text-gray-700">Objectif Volume (m³)</div>
+                    <div class="text-xs text-gray-500">Cible <?= rtrim(rtrim(number_format($objTargetM3, 2, ',', ' '), '0'), ',') ?> m³</div>
+                </div>
+                <div class="mt-2 text-sm">
+                    <div>Réalisé: <span class="font-bold text-yellow-700"><?= rtrim(rtrim(number_format($totalQuantite, 2, ',', ' '), '0'), ',') ?></span> m³</div>
+                    <div>Reste: <span class="font-bold text-gray-700"><?= rtrim(rtrim(number_format($remainM3, 2, ',', ' '), '0'), ',') ?></span> m³</div>
+                </div>
+                <div class="mt-2 w-full bg-gray-100 rounded h-2">
+                    <div class="h-2 rounded bg-yellow-400" style="width: <?= number_format($progressM3, 2, '.', '') ?>%"></div>
+                </div>
+                <div class="text-xs text-gray-500 mt-1"><?= number_format($progressM3, 1, ',', ' ') ?>%</div>
+                <div class="mt-2 text-xs text-gray-600">Moyenne actuelle: <b><?= rtrim(rtrim(number_format($avgM3PerTrip, 2, ',', ' '), '0'), ',') ?></b> m³/voyage<?php if ($remainTrips > 0): ?> • Moyenne requise: <b><?= rtrim(rtrim(number_format($needAvgM3PerTrip, 2, ',', ' '), '0'), ',') ?></b> m³/voyage<?php endif; ?></div>
+            </div>
+            <div class="bg-white rounded-xl p-4 shadow border border-yellow-100">
+                <div class="flex items-center justify-between">
+                    <div class="font-semibold text-gray-700">Objectif Voyages</div>
+                    <div class="text-xs text-gray-500">Cible <?= number_format($objTargetTrips, 0, ',', ' ') ?></div>
+                </div>
+                <div class="mt-2 text-sm">
+                    <div>Effectués: <span class="font-bold text-yellow-700"><?= number_format($totalBons, 0, ',', ' ') ?></span></div>
+                    <div>Reste: <span class="font-bold text-gray-700"><?= number_format($remainTrips, 0, ',', ' ') ?></span></div>
+                </div>
+                <div class="mt-2 w-full bg-gray-100 rounded h-2">
+                    <div class="h-2 rounded bg-yellow-400" style="width: <?= number_format($progressTrips, 2, '.', '') ?>%"></div>
+                </div>
+                <div class="text-xs text-gray-500 mt-1"><?= number_format($progressTrips, 1, ',', ' ') ?>%</div>
+                <div class="mt-2 text-xs text-gray-600">Carburant estimé: <b><?= number_format($totalLitresCarburant, 0, ',', ' ') ?></b> L • m³/voyage actuel: <b><?= rtrim(rtrim(number_format($avgM3PerTrip, 2, ',', ' '), '0'), ',') ?></b></div>
             </div>
         </div>
 
@@ -403,7 +486,8 @@ $chartBenefMontants = array_values($topBenef);
                     </thead>
                     <tbody>
                         <?php foreach ($demandes as $d): $pf = parseFieldsCombined($d['motif'] ?? '', $d['precision_fiche'] ?? '');
-                            $qval = isset($d['quantite']) && $d['quantite'] !== null && $d['quantite'] !== '' ? (float)$d['quantite'] : parseQtyFromSources($d['motif'] ?? '', $d['precision_fiche'] ?? ''); ?>
+                            $qDb = $d['quantite'] ?? null;
+                            $qval = (is_numeric($qDb) && (float)$qDb > 0) ? (float)$qDb : parseQtyFromSources($d['motif'] ?? '', $d['precision_fiche'] ?? ''); ?>
                             <tr class="border-t">
                                 <td class="px-2 py-1 font-mono text-gray-700"><?= htmlspecialchars($d['code_bon']) ?></td>
                                 <td class="px-2 py-1 font-mono text-gray-700"><?= htmlspecialchars($d['num_fiche']) ?></td>
