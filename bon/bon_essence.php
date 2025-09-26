@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../model/Database.php';
 require_once __DIR__ . '/../model/Fiche.php';
 require_once __DIR__ . '/../model/DemandeEssence.php';
-require_once __DIR__ . '/../../phpqrcode/qrlib.php';
+// Lib QR optionnelle: chargée dynamiquement plus bas si présente
 
 $pdo = (new Database())->getConnection();
 $ficheObj = new Fiche($pdo);

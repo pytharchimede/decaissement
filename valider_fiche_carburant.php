@@ -6,6 +6,7 @@ require_once __DIR__ . '/model/Fiche.php';
 require_once __DIR__ . '/model/WhatsAppSMS.php';
 require_once __DIR__ . '/model/DemandeEssence.php';
 require_once __DIR__ . '/model/SmsSender.php';
+require_once __DIR__ . '/model/Config.php';
 
 
 if (!isset($_GET['num_fiche'])) {
@@ -62,9 +63,9 @@ if ($success) {
     $demandeEssenceObj->create($data);
 
     // Envoi du bon via WhatsApp
-    $sid = "ACded19f6cd55b2ba3d18c13f438f1e878"; // Votre SID Twilio
-    $token = "7f1136b112e6d8cb4a6af94223d0872e"; // Votre TOKEN Twilio
-    $from = "whatsapp:+2250711048002"; // Numéro WhatsApp Twilio
+    $sid = AppConfig::twilioSid();
+    $token = AppConfig::twilioToken();
+    $from = AppConfig::whatsappFrom();
 
     $whatsapp = new WhatsAppSMS($sid, $token, $from);
 
@@ -72,12 +73,12 @@ if ($success) {
     $result = $whatsapp->sendCarburantBon($whatsappNumber, $nom_demandeur, $code_bon);
 
     // Numéro du gérant (format 22507XXXXXXXX)
-    $numeroGerant = "2250788202420"; // À remplacer par le vrai numéro
+    $numeroGerant = AppConfig::geranteSms();
 
 
     // Envoi WhatsApp au gérant via template validé (ContentSid)
     // Remarque: le template attend id_bon dans les liens; nous réutilisons $code_bon
-    $numeroGerantWhatsApp = "+" . $numeroGerant; // s'assurer du préfixe +225
+    $numeroGerantWhatsApp = AppConfig::geranteWhatsapp();
     $whatsapp->sendNotifCreatToGerant(
         $numeroGerantWhatsApp,
         $code_bon,

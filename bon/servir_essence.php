@@ -3,6 +3,7 @@ require_once __DIR__ . '/../model/Database.php';
 require_once __DIR__ . '/../model/Fiche.php';
 require_once __DIR__ . '/../model/DemandeEssence.php';
 require_once __DIR__ . '/../model/WhatsAppSMS.php';
+require_once __DIR__ . '/../model/Config.php';
 
 $pdo = (new Database())->getConnection();
 $ficheObj = new Fiche($pdo);
@@ -67,9 +68,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $demandeObj->updateRecuByCodeBon($code_bon, $num_recu, $img_name_saved);
 
         // Envoi WhatsApp confirmation à la station (ou au même numéro que l’initiant) – adapter le numéro cible si besoin
-        $sid = "ACded19f6cd55b2ba3d18c13f438f1e878";
-        $token = "7f1136b112e6d8cb4a6af94223d0872e";
-        $from = "whatsapp:+2250711048002";
+        $sid = AppConfig::twilioSid();
+        $token = AppConfig::twilioToken();
+        $from = AppConfig::whatsappFrom();
         $wh = new WhatsAppSMS($sid, $token, $from);
 
         // Déterminer un numéro destinataire: par défaut le demandeur (station)

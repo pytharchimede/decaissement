@@ -18,6 +18,14 @@ include 'headers/header_formulaire_demande_decaissement.php';
 <body>
     <div class="container mt-5">
         <h1 class="text-center mb-4">Formulaire de décaissement</h1>
+        <div class="d-flex justify-content-end gap-2 mb-3">
+            <a href="batch_generate_bons_express.php" class="btn btn-sm btn-warning" title="Batch EXP-DEP">
+                Batch EXP-DEP (génération bons)
+            </a>
+            <a href="admin_settings.php" class="btn btn-sm btn-outline-secondary" title="Paramètres WhatsApp/SMS">
+                Admin paramètres
+            </a>
+        </div>
 
         <div class="progress mb-4">
             <div class="progress-bar" role="progressbar" style="width: 20%;" id="progress-bar">Étape 1 sur 5</div>
