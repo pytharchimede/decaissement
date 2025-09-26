@@ -14,13 +14,17 @@ class DemandesCarburantAttenteController
     public function getAll()
     {
         try {
-            // Recherche insensible à la casse sur precision_fiche
-            $sql = "SELECT * FROM fiche 
-                    WHERE approuve = 0 
-                    AND LOWER(precision_fiche) LIKE :motclef
+            // Recherche insensible à la casse dans precision_fiche OU designation_fiche
+            // Inclut les fiches où approuve est 0 ou NULL (en attente)
+            $sql = "SELECT * FROM fiche
+                    WHERE (approuve = 0 OR approuve IS NULL)
+                      AND (
+                        LOWER(COALESCE(precision_fiche, '')) LIKE :motclef
+                        OR LOWER(COALESCE(designation_fiche, '')) LIKE :motclef
+                      )
                     ORDER BY date_creat_fiche DESC";
             $stmt = $this->pdo->prepare($sql);
-            $stmt->execute(['motclef' => '%carburant%']);
+            $stmt->execute([':motclef' => '%carburant%']);
             $demandes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             echo json_encode([
@@ -98,19 +102,22 @@ class DemandesCarburantAttenteController
 
             // Envoi WhatsApp (template) au bénéficiaire et à la gérante
             require_once __DIR__ . '/WhatsAppSMS.php';
-            $sid = "ACded19f6cd55b2ba3d18c13f438f1e878"; // SID Twilio
-            $token = "7f1136b112e6d8cb4a6af94223d0872e"; // TOKEN Twilio
-            $from = "whatsapp:+2250711048002"; // Numéro WhatsApp Twilio
-            $whatsapp = new WhatsAppSMS($sid, $token, $from);
+            require_once __DIR__ . '/Config.php';
+            $whatsapp = new WhatsAppSMS(AppConfig::twilioSid(), AppConfig::twilioToken(), AppConfig::whatsappFrom());
 
             // Bénéficiaire
-            $whatsappNumber = "+225" . $fiche['tel_beneficiaire_fiche'];
+            $raw = preg_replace('/\D+/', '', (string)$fiche['tel_beneficiaire_fiche']);
+            if (strpos($raw, '225') === 0) {
+                $raw = substr($raw, 3);
+            }
+            $raw = ltrim($raw, '0');
+            $whatsappNumber = "+225" . $raw;
             $nom_demandeur = $fiche['beficiaire_fiche'];
             $resultBon = $whatsapp->sendCarburantBon($whatsappNumber, $nom_demandeur, $code_bon);
 
             // Gérante
-            $numeroGerant = "2250788202420"; // TODO: configurer via paramètres si besoin
-            $numeroGerantWhatsApp = "+" . $numeroGerant;
+            $numeroGerant = AppConfig::geranteSms();
+            $numeroGerantWhatsApp = AppConfig::geranteWhatsapp();
             $whatsapp->sendNotifCreatToGerant(
                 $numeroGerantWhatsApp,
                 $code_bon,

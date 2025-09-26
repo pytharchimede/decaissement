@@ -57,6 +57,16 @@ switch ($endpoint) {
         }
         break;
 
+    case 'demandes_carburant_attente':
+        if ($method === 'GET') {
+            $controller = new DemandesCarburantAttenteController();
+            $controller->getAll();
+        } else {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        }
+        break;
+
     case 'stations_service':
         if ($method === 'GET') {
             $controller = new StationsServiceController();
@@ -148,15 +158,7 @@ switch ($endpoint) {
         }
         break;
 
-    case 'demandes_carburant_attente':
-        if ($method === 'GET') {
-            $controller = new DemandesCarburantAttenteController();
-            $controller->getAll();
-        } else {
-            http_response_code(405);
-            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
-        }
-        break;
+
 
     case 'accepter_demande_carburant':
         if ($method === 'POST') {
