@@ -48,24 +48,27 @@ if ($action === 'search') {
 }
 
 if ($action === 'generate') {
-    // Construire la liste des numéros de fiches à traiter
-    $selected = isset($_POST['selected']) && is_array($_POST['selected']) ? array_map('intval', $_POST['selected']) : [];
+    // Construire la liste des numéros de fiches à traiter (préserver les zéros à gauche)
+    $selected = isset($_POST['selected']) && is_array($_POST['selected']) ? array_map('strval', $_POST['selected']) : [];
     if (empty($selected) && isset($_POST['generate_all']) && $_POST['generate_all'] === '1') {
         $all = fetchExpressFiches($pdo);
-        $selected = array_map(fn($f) => (int)$f['num_fiche'], $all);
+        $selected = array_map(fn($f) => (string)$f['num_fiche'], $all);
     }
 
     // Pour éviter duplication lors d'un refresh
-    $selected = array_values(array_unique(array_filter($selected)));
+    $selected = array_values(array_unique(array_filter($selected, fn($v) => $v !== '')));
 
     foreach ($selected as $num) {
         try {
             $fiche = $ficheObj->getByNumFiche($num);
-            if (!$fiche) {
+            if (!$fiche || !is_array($fiche)) {
                 $generationReport[] = [
                     'num_fiche' => $num,
                     'status' => 'error',
-                    'message' => "Fiche introuvable"
+                    'message' => "Fiche introuvable",
+                    'wa_benef' => '-',
+                    'wa_ger' => '-',
+                    'sms' => '-'
                 ];
                 continue;
             }
@@ -78,7 +81,11 @@ if ($action === 'generate') {
                     'code_bon' => $code_bon,
                     'status' => 'skipped',
                     'message' => 'Bon déjà existant',
-                    'view_url' => 'bon/bon_essence.php?id_bon=' . urlencode($code_bon)
+                    'wa_benef' => 'skipped',
+                    'wa_ger' => 'skipped',
+                    'sms' => 'skipped',
+                    'view_url' => 'bon/bon_essence.php?id_bon=' . urlencode($code_bon),
+                    'serve_url' => 'bon/servir_essence.php?id_bon=' . urlencode($code_bon)
                 ];
                 continue;
             }
@@ -149,7 +156,10 @@ if ($action === 'generate') {
             $generationReport[] = [
                 'num_fiche' => $num,
                 'status' => 'error',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
+                'wa_benef' => '-',
+                'wa_ger' => '-',
+                'sms' => '-'
             ];
         }
     }
@@ -205,8 +215,8 @@ if ($action === 'generate') {
                     <form method="post" onsubmit="return confirm('Générer les bons pour la sélection ?');">
                         <input type="hidden" name="action" value="generate" />
                         <input type="hidden" name="generate_all" value="0" />
-                        <button class="px-3 py-2 bg-yellow-500 text-white rounded">Générer pour la sélection</button>
-                        <button class="px-3 py-2 bg-green-600 text-white rounded" name="generate_all" value="1" onclick="this.form.submit(); return false;">Générer pour tous</button>
+                        <button type="submit" class="px-3 py-2 bg-yellow-500 text-white rounded">Générer pour la sélection</button>
+                        <button type="submit" class="px-3 py-2 bg-green-600 text-white rounded" name="generate_all" value="1">Générer pour tous</button>
                     <?php endif; ?>
             </div>
 
@@ -228,7 +238,7 @@ if ($action === 'generate') {
                     <tbody class="text-sm">
                         <?php foreach ($searchResults as $f): $codePrev = generateCodeBon($f); ?>
                             <tr>
-                                <td><input type="checkbox" name="selected[]" value="<?= (int)$f['num_fiche'] ?>" class="chk" /></td>
+                                <td><input type="checkbox" name="selected[]" value="<?= htmlspecialchars($f['num_fiche']) ?>" class="chk" /></td>
                                 <td><?= htmlspecialchars($f['num_fiche']) ?></td>
                                 <td><?= htmlspecialchars((new DateTime($f['date_creat_fiche']))->format('d/m/Y H:i')) ?></td>
                                 <td><?= htmlspecialchars($f['beficiaire_fiche']) ?></td>
