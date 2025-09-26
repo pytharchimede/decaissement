@@ -191,24 +191,33 @@ class Fiche
 
     public function generateNumFiche()
     {
-        // Récupérer le dernier numéro de fiche
-        $sql = "SELECT num_fiche FROM fiche ORDER BY id_fiche DESC LIMIT 1";
-        $stmt = $this->pdo->query($sql);
+        // La logique métier demandée :
+        // - Le numéro de fiche est basé sur le rang (COUNT(*)) dans la table
+        // - S'il existe déjà, on incrémente jusqu'à obtenir un numéro unique
+        // - Format souhaité : '0' . {n} (ex: 01, 02, 010, ...)
 
-        // Vérifier si un numéro existe déjà
-        $lastNumFiche = $stmt->fetchColumn();
+        // 1) Récupérer le rang de la table
+        $countSql = "SELECT COUNT(*) FROM fiche";
+        $count = (int) $this->pdo->query($countSql)->fetchColumn();
 
-        if ($lastNumFiche) {
-            // Extraire le numéro et l'incrémenter
-            $numberPart = (int) filter_var($lastNumFiche, FILTER_SANITIZE_NUMBER_INT);
-            $newNumber = $numberPart + 1;
+        // 2) Base initiale: au moins 1
+        $n = max(1, $count);
+        $candidate = '0' . $n;
 
-            // Générer le nouveau numéro avec le format requis
-            return '0' . str_pad($newNumber, 4, '0', STR_PAD_LEFT); // Exemple : 0001, 0002...
-        } else {
-            // Aucun numéro précédent, commencer à 0001
-            return '0001';
+        // 3) Incrémenter tant que ce numéro existe déjà
+        $checkSql = "SELECT 1 FROM fiche WHERE num_fiche = :num LIMIT 1";
+        $checkStmt = $this->pdo->prepare($checkSql);
+        while (true) {
+            $checkStmt->execute([':num' => $candidate]);
+            $exists = $checkStmt->fetchColumn();
+            if ($exists === false) {
+                break; // trouvé un numéro unique
+            }
+            $n++;
+            $candidate = '0' . $n;
         }
+
+        return $candidate;
     }
 
     public function approveFicheByNum($num_fiche, $secur_approuve)
