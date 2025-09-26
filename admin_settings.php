@@ -5,7 +5,7 @@ require_once __DIR__ . '/model/SettingsRepository.php';
 require_once __DIR__ . '/model/Config.php';
 
 // Protection ultra-simple (à améliorer si besoin) : mot de passe d'une variable d'env ou fixe
-$ADMIN_PASS = getenv('DECAISSEMENT_ADMIN_PASS') ?: 'change-me-now';
+$ADMIN_PASS = getenv('DECAISSEMENT_ADMIN_PASS') ?: 'admin';
 if (!isset($_SESSION['is_admin']) || $_SESSION['is_admin'] !== true) {
     if (isset($_POST['admin_pass'])) {
         if (hash('sha256', $_POST['admin_pass']) === hash('sha256', $ADMIN_PASS)) {
