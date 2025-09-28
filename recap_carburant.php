@@ -27,6 +27,9 @@ $vehiculeFilter = "Dotation carburant (50 l/j) purge";
 $conditions[] = "e.vehicule LIKE :vehiculeFilter";
 $params[':vehiculeFilter'] = $vehiculeFilter . '%';
 
+// Exclure les bons désactivés
+$conditions[] = "(e.desactive IS NULL OR e.desactive = 0)";
+
 // Si scope=batch, restreindre aux num_fiche du SQL de la page batch
 if ($scope === 'batch' && !empty($_SESSION['batch_custom_sql']) && is_string($_SESSION['batch_custom_sql'])) {
     $batchSql = $_SESSION['batch_custom_sql'];
@@ -85,12 +88,18 @@ if ($num_fiche) {
 }
 
 $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
-// Jointure pour récupérer precision_fiche depuis fiche
-$sql = "SELECT e.*, f.precision_fiche 
-        FROM demande_essence e 
-        LEFT JOIN fiche f ON f.num_fiche = e.num_fiche 
-        $where 
-        ORDER BY e.date_demande DESC";
+// Déduplication stricte par code_bon via sous-requête (on prend le MIN(id) par bon)
+$whereSub = $where ? preg_replace('/\be\./', 'd.', $where) : '';
+$sql = "SELECT e.*, f.precision_fiche
+    FROM demande_essence e
+    JOIN (
+        SELECT d.code_bon, MIN(d.id) AS id
+        FROM demande_essence d
+        $whereSub
+        GROUP BY d.code_bon
+    ) u ON u.id = e.id
+    LEFT JOIN fiche f ON f.num_fiche = e.num_fiche
+    ORDER BY e.date_demande DESC";
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $demandes = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -159,16 +168,22 @@ function parseQtyFromSources(?string $motif, ?string $precision): float
 
 // Calculs agrégés
 $totalMontant = 0;
-$totalBons = count($demandes);
+$totalBons = count($demandes); // nombre d'entrées
 $totalQuantite = 0.0;
 $sumFraisRoute = 0;
 $sumSolde = 0;
-$totalLitresCarburant = $totalBons * 50; // règle métier
+$totalTripsEq = 0.0; // voyages équivalents = montant / 33750 (soit 50 L)
+$basePerTrip = 33750.0; // FCFA pour 50 L
+$litersPerTrip = 50.0;
+$pricePerLiter = $basePerTrip / $litersPerTrip; // 675 FCFA/L
 $byDayMontant = [];
 $byDayQuantite = [];
 $byBenefMontant = [];
 foreach ($demandes as $d) {
     $m = (float)($d['montant'] ?? 0);
+    if ($m > 0) {
+        $totalTripsEq += ($m / $basePerTrip);
+    }
     $qDb = $d['quantite'] ?? null;
     $q = (is_numeric($qDb) && (float)$qDb > 0)
         ? (float)$qDb
@@ -193,6 +208,9 @@ ksort($byDayQuantite);
 // Top bénéficiaires
 arsort($byBenefMontant);
 $topBenef = array_slice($byBenefMontant, 0, 7, true);
+
+// Carburant estimé basé sur voyages équivalents
+$totalLitresCarburant = $totalTripsEq * $litersPerTrip; // équiv. $totalMontant / 675
 
 // Objectifs: calculs dérivés
 $objTargetM3 = max(0.0, (float)$target_m3);
@@ -283,10 +301,14 @@ $chartBenefMontants = array_values($topBenef);
             <button type="submit" class="bg-yellow-400 hover:bg-yellow-500 text-black px-4 py-1 rounded font-bold text-xs">Rechercher</button>
         </form>
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 w-full">
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3 w-full">
                 <div class="bg-white rounded-xl p-3 shadow border border-yellow-100">
                     <div class="text-xs text-gray-500">Bons</div>
                     <div class="text-xl font-extrabold text-yellow-700"><?= $totalBons ?></div>
+                </div>
+                <div class="bg-white rounded-xl p-3 shadow border border-yellow-100">
+                    <div class="text-xs text-gray-500">Voyages (équiv.)</div>
+                    <div class="text-xl font-extrabold text-yellow-700"><?= number_format((int)round($totalTripsEq), 0, ',', ' ') ?></div>
                 </div>
                 <div class="bg-white rounded-xl p-3 shadow border border-yellow-100">
                     <div class="text-xs text-gray-500">Montant total carburant</div>
@@ -306,10 +328,20 @@ $chartBenefMontants = array_values($topBenef);
                     class="bg-green-100 hover:bg-green-200 text-green-800 px-3 py-1 rounded text-xs font-bold flex items-center gap-1 shadow">
                     <i class="fa-solid fa-file-excel"></i> Export Excel
                 </a>
-                <a href="export_carburant_pdf.php?<?= http_build_query($_GET) ?>"
-                    class="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded text-xs font-bold flex items-center gap-1 shadow">
-                    <i class="fa-solid fa-file-pdf"></i> Export PDF
-                </a>
+                <div class="flex gap-1">
+                    <a href="export_carburant_pdf.php?<?= http_build_query(array_merge($_GET, ['mode' => 'analytique'])) ?>"
+                        class="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded text-xs font-bold flex items-center gap-1 shadow">
+                        <i class="fa-solid fa-chart-line"></i> PDF Analytique
+                    </a>
+                    <a href="export_carburant_pdf.php?<?= http_build_query(array_merge($_GET, ['mode' => 'financier'])) ?>"
+                        class="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded text-xs font-bold flex items-center gap-1 shadow">
+                        <i class="fa-solid fa-sack-dollar"></i> PDF Financier
+                    </a>
+                    <a href="export_carburant_pdf.php?<?= http_build_query(array_merge($_GET, ['mode' => 'global'])) ?>"
+                        class="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded text-xs font-bold flex items-center gap-1 shadow">
+                        <i class="fa-solid fa-list"></i> PDF Global
+                    </a>
+                </div>
                 <a href="export_carburant_csv.php?<?= http_build_query($_GET) ?>"
                     class="bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1 rounded text-xs font-bold flex items-center gap-1 shadow">
                     <i class="fa-solid fa-file-csv"></i> Export CSV
@@ -360,14 +392,17 @@ $chartBenefMontants = array_values($topBenef);
                     <div class="text-xs text-gray-500">Cible <?= number_format($objTargetTrips, 0, ',', ' ') ?></div>
                 </div>
                 <div class="mt-2 text-sm">
-                    <div>Effectués: <span class="font-bold text-yellow-700"><?= number_format($totalBons, 0, ',', ' ') ?></span></div>
-                    <div>Reste: <span class="font-bold text-gray-700"><?= number_format($remainTrips, 0, ',', ' ') ?></span></div>
+                    <?php $tripsDoneInt = (int)round($totalTripsEq); ?>
+                    <div>Effectués: <span class="font-bold text-yellow-700"><?= number_format($tripsDoneInt, 0, ',', ' ') ?></span></div>
+                    <div>Reste: <span class="font-bold text-gray-700"><?= number_format(max(0, $objTargetTrips - $tripsDoneInt), 0, ',', ' ') ?></span></div>
                 </div>
                 <div class="mt-2 w-full bg-gray-100 rounded h-2">
-                    <div class="h-2 rounded bg-yellow-400" style="width: <?= number_format($progressTrips, 2, '.', '') ?>%"></div>
+                    <?php $progressTripsAdj = $objTargetTrips > 0 ? min(100.0, ($tripsDoneInt / $objTargetTrips) * 100.0) : 0.0; ?>
+                    <div class="h-2 rounded bg-yellow-400" style="width: <?= number_format($progressTripsAdj, 2, '.', '') ?>%"></div>
                 </div>
-                <div class="text-xs text-gray-500 mt-1"><?= number_format($progressTrips, 1, ',', ' ') ?>%</div>
-                <div class="mt-2 text-xs text-gray-600">Carburant estimé: <b><?= number_format($totalLitresCarburant, 0, ',', ' ') ?></b> L • m³/voyage actuel: <b><?= rtrim(rtrim(number_format($avgM3PerTrip, 2, ',', ' '), '0'), ',') ?></b></div>
+                <div class="text-xs text-gray-500 mt-1"><?= number_format($progressTripsAdj, 1, ',', ' ') ?>%</div>
+                <?php $avgM3PerTripEq = ($totalTripsEq > 0 ? ($totalQuantite / $totalTripsEq) : 0.0); ?>
+                <div class="mt-2 text-xs text-gray-600">Carburant estimé: <b><?= number_format($totalLitresCarburant, 0, ',', ' ') ?></b> L • m³/voyage actuel: <b><?= rtrim(rtrim(number_format($avgM3PerTripEq, 2, ',', ' '), '0'), ',') ?></b></div>
             </div>
         </div>
 
@@ -430,6 +465,10 @@ $chartBenefMontants = array_values($topBenef);
                     <div class="mb-2 flex flex-wrap items-center gap-2">
                         <div class="font-semibold text-gray-700">Montant :</div>
                         <div class="text-yellow-700 font-bold"><?= number_format($d['montant'], 0, ',', ' ') ?> FCFA</div>
+                        <?php $trEq = ($d['montant'] ?? 0) > 0 ? (($d['montant']) / $basePerTrip) : 0;
+                        $litEq = $trEq * $litersPerTrip; ?>
+                        <span class="text-xs px-2 py-1 rounded bg-yellow-50 text-yellow-800 border border-yellow-200">Voyages (équiv.): <b><?= (int)round($trEq) ?></b></span>
+                        <span class="text-xs px-2 py-1 rounded bg-blue-50 text-blue-800 border border-blue-200">Litres (équiv.): <b><?= number_format((int)round($litEq), 0, ',', ' ') ?></b> L</span>
                     </div>
                     <div class="flex gap-2 mt-3">
                         <a href="<?= $bonUrl ?>" target="_blank"
@@ -471,7 +510,10 @@ $chartBenefMontants = array_values($topBenef);
                 <table id="tbl" class="min-w-full text-sm">
                     <thead>
                         <tr class="text-left text-gray-600">
-                            <th class="px-2 py-1">Code bon</th>
+                            <th class="px-2 py-1">N° Bon</th>
+                            <th class="px-2 py-1">Montant</th>
+                            <th class="px-2 py-1">Voyages (équiv.)</th>
+                            <th class="px-2 py-1">Litres (équiv.)</th>
                             <th class="px-2 py-1">N° fiche</th>
                             <th class="px-2 py-1">Date</th>
                             <th class="px-2 py-1">Bénéficiaire</th>
@@ -480,16 +522,22 @@ $chartBenefMontants = array_values($topBenef);
                             <th class="px-2 py-1">Quantité</th>
                             <th class="px-2 py-1">Frais route</th>
                             <th class="px-2 py-1">Solde</th>
-                            <th class="px-2 py-1">Montant</th>
                             <th class="px-2 py-1">Motif</th>
+                            <th class="px-2 py-1">Montant</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($demandes as $d): $pf = parseFieldsCombined($d['motif'] ?? '', $d['precision_fiche'] ?? '');
                             $qDb = $d['quantite'] ?? null;
-                            $qval = (is_numeric($qDb) && (float)$qDb > 0) ? (float)$qDb : parseQtyFromSources($d['motif'] ?? '', $d['precision_fiche'] ?? ''); ?>
+                            $qval = (is_numeric($qDb) && (float)$qDb > 0) ? (float)$qDb : parseQtyFromSources($d['motif'] ?? '', $d['precision_fiche'] ?? '');
+                            $mval = (float)($d['montant'] ?? 0);
+                            $trEq = $mval > 0 ? ($mval / $basePerTrip) : 0;
+                            $litEq = $trEq * $litersPerTrip; ?>
                             <tr class="border-t">
                                 <td class="px-2 py-1 font-mono text-gray-700"><?= htmlspecialchars($d['code_bon']) ?></td>
+                                <td class="px-2 py-1 text-right"><?= number_format((float)($d['montant'] ?? 0), 0, ',', ' ') ?> FCFA</td>
+                                <td class="px-2 py-1 text-right"><?= number_format((int)round($trEq), 0, ',', ' ') ?></td>
+                                <td class="px-2 py-1 text-right"><?= number_format((int)round($litEq), 0, ',', ' ') ?> L</td>
                                 <td class="px-2 py-1 font-mono text-gray-700"><?= htmlspecialchars($d['num_fiche']) ?></td>
                                 <td class="px-2 py-1"><?= htmlspecialchars(date('d/m/Y', strtotime($d['date_demande']))) ?></td>
                                 <td class="px-2 py-1"><?= htmlspecialchars($d['nom_beneficiaire']) ?></td>
@@ -498,7 +546,6 @@ $chartBenefMontants = array_values($topBenef);
                                 <td class="px-2 py-1 text-right"><?= rtrim(rtrim(number_format($qval, 2, ',', ' '), '0'), ',') ?></td>
                                 <td class="px-2 py-1 text-right"><?= isset($pf['frais_route']) ? number_format((int)$pf['frais_route'], 0, ',', ' ') : '' ?></td>
                                 <td class="px-2 py-1 text-right"><?= isset($pf['solde']) ? number_format((int)$pf['solde'], 0, ',', ' ') : '' ?></td>
-                                <td class="px-2 py-1 text-right"><?= number_format((float)($d['montant'] ?? 0), 0, ',', ' ') ?> FCFA</td>
                                 <td class="px-2 py-1"><?= htmlspecialchars($d['motif']) ?></td>
                             </tr>
                         <?php endforeach; ?>

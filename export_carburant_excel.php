@@ -26,6 +26,8 @@ $scope = $_GET['scope'] ?? '';
 $vehiculeFilter = "Dotation carburant (50 l/j) purge";
 $conditions[] = "e.vehicule LIKE :vehiculeFilter";
 $params[':vehiculeFilter'] = $vehiculeFilter . '%';
+// Exclure les bons désactivés
+$conditions[] = "(e.desactive IS NULL OR e.desactive = 0)";
 
 // Si scope=batch, restreindre aux num_fiche issus du SQL de la page batch (en session)
 if ($scope === 'batch' && !empty($_SESSION['batch_custom_sql']) && is_string($_SESSION['batch_custom_sql'])) {
@@ -77,7 +79,7 @@ if ($num_fiche) {
 
 $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
 // Jointure pour accéder à precision_fiche
-$sql = "SELECT e.*, f.precision_fiche FROM demande_essence e LEFT JOIN fiche f ON f.num_fiche = e.num_fiche $where ORDER BY e.date_demande DESC";
+$sql = "SELECT e.*, f.precision_fiche FROM demande_essence e LEFT JOIN fiche f ON f.num_fiche = e.num_fiche $where GROUP BY e.id ORDER BY e.date_demande DESC";
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $demandes = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -102,7 +104,7 @@ $sheet = $spreadsheet->getActiveSheet();
 
 // --- EN-TÊTE DESIGN ---
 $row = 1;
-$sheet->mergeCells("A$row:G$row");
+$sheet->mergeCells("A$row:L$row");
 $sheet->setCellValue("A$row", "Liste des Bons Carburant");
 $sheet->getStyle("A$row")->getFont()->setBold(true)->setSize(16)->getColor()->setRGB('78350F');
 $sheet->getStyle("A$row")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
@@ -122,12 +124,12 @@ if ($demandeur) $paramText[] = "Demandeur : $demandeur";
 if ($motif) $paramText[] = "Motif : $motif";
 if ($num_fiche) $paramText[] = "N° Fiche : $num_fiche";
 if ($paramText) {
-    $sheet->mergeCells("A$row:G$row");
+    $sheet->mergeCells("A$row:L$row");
     $sheet->setCellValue("A$row", implode("   |   ", $paramText));
     $sheet->getStyle("A$row")->getFont()->setItalic(true)->setSize(10);
     $row++;
 }
-$sheet->mergeCells("A$row:G$row");
+$sheet->mergeCells("A$row:L$row");
 $sheet->setCellValue("A$row", "Date d'export : " . date('d/m/Y H:i'));
 $sheet->getStyle("A$row")->getFont()->setSize(10)->getColor()->setRGB('374151');
 $sheet->getStyle("A$row")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
@@ -142,24 +144,35 @@ $headers = [
     'Chauffeur',
     'Matricule',
     'Quantité m3',
+    'Voyages (équiv.)',
+    'Litres (équiv.)',
     'Frais route',
     'Solde',
     'Montant',
 ];
 $sheet->fromArray($headers, null, "A$row");
-$sheet->getStyle("A$row:J$row")->getFont()->setBold(true)->getColor()->setRGB('78350F');
-$sheet->getStyle("A$row:J$row")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FACC15');
-$sheet->getStyle("A$row:J$row")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+$sheet->getStyle("A$row:L$row")->getFont()->setBold(true)->getColor()->setRGB('78350F');
+$sheet->getStyle("A$row:L$row")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FACC15');
+$sheet->getStyle("A$row:L$row")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 $row++;
 
 // --- DONNÉES ---
 $totalMontant = 0;
 $totalQte = 0.0;
+$totalTripsEq = 0;
+$totalLitresEq = 0;
+// Constantes métier
+$basePerTrip = 33750; // FCFA par voyage
+$litersPerTrip = 50;
 foreach ($demandes as $d) {
     $pf = xl_parse_fields($d['motif'] ?? '', $d['precision_fiche'] ?? '');
     $q = isset($d['quantite']) && $d['quantite'] !== '' && $d['quantite'] !== null ? (float)$d['quantite'] : (float)($pf['quantite'] ?? 0);
     $fr = isset($pf['frais']) ? (int)$pf['frais'] : null;
     $sd = isset($pf['solde']) ? (int)$pf['solde'] : null;
+    $mval = (float)($d['montant'] ?? 0);
+    $trEq = $mval > 0 ? ($mval / $basePerTrip) : 0;
+    $trEqInt = (int)round($trEq);
+    $litEq = $trEqInt * $litersPerTrip;
     $sheet->fromArray([
         $d['code_bon'],
         $d['num_fiche'],
@@ -168,12 +181,16 @@ foreach ($demandes as $d) {
         $pf['nom'],
         $pf['matricule'],
         $q,
+        $trEqInt,
+        $litEq,
         $fr,
         $sd,
         (float)$d['montant'],
     ], null, "A$row");
     $totalMontant += (float)$d['montant'];
     $totalQte += (float)$q;
+    $totalTripsEq += $trEqInt;
+    $totalLitresEq += $litEq;
     $row++;
 }
 
@@ -181,12 +198,14 @@ foreach ($demandes as $d) {
 // Totaux
 $sheet->setCellValue("F$row", "Totaux");
 $sheet->setCellValue("G$row", $totalQte);
-$sheet->setCellValue("J$row", "=SUM(J" . ($row - count($demandes)) . ":J" . ($row - 1) . ")");
-$sheet->getStyle("F$row:J$row")->getFont()->setBold(true)->getColor()->setRGB('78350F');
-$sheet->getStyle("F$row:J$row")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FACC15');
+$sheet->setCellValue("H$row", $totalTripsEq);
+$sheet->setCellValue("I$row", $totalLitresEq);
+$sheet->setCellValue("L$row", "=SUM(L" . ($row - count($demandes)) . ":L" . ($row - 1) . ")");
+$sheet->getStyle("F$row:L$row")->getFont()->setBold(true)->getColor()->setRGB('78350F');
+$sheet->getStyle("F$row:L$row")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FACC15');
 
 // --- LARGEURS AUTOMATIQUES ---
-foreach (range('A', 'J') as $col) {
+foreach (range('A', 'L') as $col) {
     $sheet->getColumnDimension($col)->setAutoSize(true);
 }
 
@@ -199,7 +218,7 @@ $styleArray = [
         ],
     ],
 ];
-$sheet->getStyle("A" . ($row - count($demandes)) . ":J$row")->applyFromArray($styleArray);
+$sheet->getStyle("A" . ($row - count($demandes)) . ":L$row")->applyFromArray($styleArray);
 
 // --- TÉLÉCHARGEMENT ---
 header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

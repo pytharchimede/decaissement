@@ -18,6 +18,8 @@ $scope = $_GET['scope'] ?? '';
 $vehiculeFilter = "Dotation carburant (50 l/j) purge";
 $conditions[] = "vehicule LIKE :vehiculeFilter";
 $params[':vehiculeFilter'] = $vehiculeFilter . '%';
+// Exclure les bons désactivés
+$conditions[] = "(desactive IS NULL OR desactive = 0)";
 
 // Si scope=batch, restreindre aux num_fiche issus du SQL batch en session
 session_start();
@@ -76,7 +78,7 @@ $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
 $sql = "SELECT e.code_bon, e.num_fiche, e.date_demande, e.nom_beneficiaire, e.vehicule, e.quantite, e.montant, e.motif, f.precision_fiche 
     FROM demande_essence e 
     LEFT JOIN fiche f ON f.num_fiche = e.num_fiche 
-    $where ORDER BY e.date_demande DESC";
+    $where GROUP BY e.id ORDER BY e.date_demande DESC";
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -89,7 +91,21 @@ $output = fopen('php://output', 'w');
 fwrite($output, chr(239) . chr(187) . chr(191));
 
 // Entêtes
-fputcsv($output, ['Code bon', 'N° fiche', 'Date', 'Bénéficiaire', 'Chauffeur', 'Matricule', 'Quantité m3', 'Frais route', 'Solde', 'Montant', 'Motif'], ';');
+fputcsv($output, [
+    'Code bon',
+    'N° fiche',
+    'Date',
+    'Bénéficiaire',
+    'Chauffeur',
+    'Matricule',
+    'Quantité m3',
+    'Voyages (équiv.)',
+    'Litres (équiv.)',
+    'Frais route',
+    'Solde',
+    'Montant',
+    'Motif'
+], ';');
 
 // Helpers parse
 function parse_fields($motif, $precision)
@@ -114,8 +130,16 @@ function parse_fields($motif, $precision)
     return $out;
 }
 
+// Constantes métier
+$basePerTrip = 33750; // FCFA par voyage (50 L)
+$litersPerTrip = 50;
+
 foreach ($rows as $r) {
     $pf = parse_fields($r['motif'] ?? '', $r['precision_fiche'] ?? '');
+    $m = isset($r['montant']) ? (float)$r['montant'] : 0.0;
+    $trEq = $m > 0 ? ($m / $basePerTrip) : 0;
+    $trEqInt = (int)round($trEq);
+    $litEq = $trEqInt * $litersPerTrip;
     fputcsv($output, [
         $r['code_bon'],
         $r['num_fiche'],
@@ -124,6 +148,8 @@ foreach ($rows as $r) {
         $pf['nom'],
         $pf['matricule'],
         $pf['quantite'] !== '' ? $pf['quantite'] : str_replace('.', ',', (string)($r['quantite'] ?? '0')),
+        $trEqInt,
+        $litEq,
         $pf['frais'],
         $pf['solde'],
         (string)$r['montant'],

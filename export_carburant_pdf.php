@@ -10,16 +10,23 @@ class PDF extends FPDF
     // Helpers table multi-lignes
     protected $widths;
     protected $aligns;
+    protected $title = 'Récap Carburant — Transport';
 
     function Header()
     {
         $this->SetFillColor(250, 204, 21);
-        $this->Rect(0, 0, 210, 20, 'F');
+        // Bandeau adaptatif à l'orientation
+        $this->Rect(0, 0, $this->w, 20, 'F');
         $this->SetFont('Arial', 'B', 16);
         $this->SetTextColor(120, 53, 15);
-        $titre = mb_convert_encoding('Récap Carburant — Transport', 'ISO-8859-1', 'UTF-8');
+        $titre = mb_convert_encoding($this->title, 'ISO-8859-1', 'UTF-8');
         $this->Cell(0, 12, $titre, 0, 1, 'C');
         $this->Ln(2);
+    }
+
+    function setTitleText($t)
+    {
+        $this->title = $t;
     }
 
     function SetWidths($w)
@@ -48,8 +55,8 @@ class PDF extends FPDF
         for ($i = 0; $i < count($data); $i++) {
             $w = $this->widths[$i];
             $a = isset($this->aligns[$i]) ? $this->aligns[$i] : 'L';
-            $x = $this->GetX();
-            $y = $this->GetY();
+            $x = (float)$this->GetX();
+            $y = (float)$this->GetY();
             // Bordure
             $this->Rect($x, $y, $w, $h);
             // Texte
@@ -189,6 +196,8 @@ $params = [];
 $vehiculeFilter = "Dotation carburant (50 l/j) purge";
 $conditions[] = "e.vehicule LIKE :vehiculeFilter";
 $params[':vehiculeFilter'] = $vehiculeFilter . '%';
+// Exclure les bons désactivés
+$conditions[] = "(e.desactive IS NULL OR e.desactive = 0)";
 
 // Scope batch → restriction num_fiche
 if ($scope === 'batch' && !empty($_SESSION['batch_custom_sql']) && is_string($_SESSION['batch_custom_sql'])) {
@@ -239,15 +248,27 @@ if ($num_fiche) {
 }
 
 $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
-$sql = "SELECT e.*, f.precision_fiche FROM demande_essence e LEFT JOIN fiche f ON f.num_fiche = e.num_fiche $where ORDER BY e.date_demande DESC";
+$sql = "SELECT e.*, f.precision_fiche FROM demande_essence e LEFT JOIN fiche f ON f.num_fiche = e.num_fiche $where GROUP BY e.id ORDER BY e.date_demande DESC";
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $demandes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Affichage des paramètres de recherche
 $pdf = new PDF();
+$mode = strtolower($_GET['mode'] ?? 'global');
+if (!in_array($mode, ['analytique', 'financier', 'global'])) {
+    $mode = 'global';
+}
+// Orientation & titre par mode
+$orient = ($mode === 'analytique' || $mode === 'financier') ? 'L' : 'P';
+$titles = [
+    'analytique' => 'Récap analytique — Carburant (Transport)',
+    'financier'  => 'Récap financier — Carburant (Transport)',
+    'global'     => 'Récap global — Carburant (Transport)'
+];
+$pdf->setTitleText($titles[$mode]);
 $pdf->SetFont('Arial', '', 9);
-$pdf->AddPage();
+$pdf->AddPage($orient);
 $pdf->SetFont('Arial', '', 9);
 $pdf->SetTextColor(55, 65, 81);
 $paramText = '';
@@ -273,10 +294,13 @@ $totalMontant = 0;
 $totalQte = 0.0;
 $sumFraisRoute = 0;
 $sumSolde = 0;
-$totalLitresCarburant = $totalBons * 50;
+$totalTripsEq = 0.0;
+$basePerTrip = 33750.0; // FCFA par 50 L
+$litersPerTrip = 50.0;
 $byDayMontant = [];
 $byDayQuantite = [];
 $byBenefMontant = [];
+$byBenefTrips = [];
 
 // Parsing robuste (même logique que sur la page)
 function pdf_parse_fields(?string $motif, ?string $precision): array
@@ -304,6 +328,7 @@ foreach ($demandes as $d) {
     $q = (is_numeric($qDb) && (float)$qDb > 0) ? (float)$qDb : (float)($pf['quantite'] ?? 0);
     $m = (float)($d['montant'] ?? 0);
     $totalMontant += $m;
+    if ($m > 0) $totalTripsEq += ($m / $basePerTrip);
     $totalQte += $q;
     $sumFraisRoute += (int)($pf['frais'] ?? 0);
     $sumSolde += (int)($pf['solde'] ?? 0);
@@ -324,90 +349,241 @@ $topBenefValues = array_values(array_slice($byBenefMontant, 0, 7, true));
 $chartDays = array_keys($byDayMontant);
 $chartMontants = array_values($byDayMontant);
 $chartQuantites = array_values($byDayQuantite);
+// Séries dérivées non financières
+$chartTrips = array_map(function ($val) use ($basePerTrip) {
+    return $val > 0 ? $val / $basePerTrip : 0;
+}, $chartMontants);
+$chartLiters = array_map(function ($tr) use ($litersPerTrip) {
+    return $tr * $litersPerTrip;
+}, $chartTrips);
+// Top bénéficiaires par voyages équivalents
+foreach ($byBenefMontant as $k => $v) {
+    $byBenefTrips[$k] = ($v > 0 ? $v / $basePerTrip : 0);
+}
+arsort($byBenefTrips);
+$topBenefTripsLabels = array_keys(array_slice($byBenefTrips, 0, 7, true));
+$topBenefTripsValues = array_values(array_slice($byBenefTrips, 0, 7, true));
 
-// KPIs
+// KPIs par mode + Objectifs pour analytique/global
+$totalLitresCarburant = $totalTripsEq * $litersPerTrip; // équiv. $totalMontant / 675
+$objectifVolume = 4182.10;
+$objectifVoyages = 218;
+$progressVol = $objectifVolume > 0 ? min(100, ($totalQte / $objectifVolume) * 100) : 0;
+$restantVol = max(0, $objectifVolume - $totalQte);
+$progressTrip = $objectifVoyages > 0 ? min(100, ((int)round($totalTripsEq)) / $objectifVoyages * 100) : 0;
+$restantTrip = max(0, $objectifVoyages - (int)round($totalTripsEq));
+
 $pdf->SetFont('Arial', 'B', 11);
 $pdf->SetTextColor(120, 53, 15);
 $pdf->Cell(0, 7, mb_convert_encoding("Dotation carburant (50 l/j) purge — Récap", 'ISO-8859-1', 'UTF-8'), 0, 1, 'L');
 $pdf->SetFont('Arial', '', 9);
 $pdf->SetTextColor(55, 65, 81);
-$pdf->Cell(48, 6, mb_convert_encoding('Bons: ' . number_format($totalBons, 0, ',', ' '), 'ISO-8859-1', 'UTF-8'), 0, 0);
-$pdf->Cell(72, 6, mb_convert_encoding('Montant total: ' . number_format($totalMontant, 0, ',', ' ') . ' FCFA', 'ISO-8859-1', 'UTF-8'), 0, 0);
-$pdf->Cell(70, 6, mb_convert_encoding('Carburant estimé: ' . number_format($totalLitresCarburant, 0, ',', ' ') . ' L', 'ISO-8859-1', 'UTF-8'), 0, 1);
-$pdf->Cell(48, 6, mb_convert_encoding('m³ transportés: ' . rtrim(rtrim(number_format($totalQte, 2, ',', ' '), '0'), ','), 'ISO-8859-1', 'UTF-8'), 0, 0);
-$pdf->Cell(72, 6, mb_convert_encoding('Frais de route: ' . number_format($sumFraisRoute, 0, ',', ' ') . ' FCFA', 'ISO-8859-1', 'UTF-8'), 0, 0);
-$pdf->Cell(70, 6, mb_convert_encoding('Solde: ' . number_format($sumSolde, 0, ',', ' ') . ' FCFA', 'ISO-8859-1', 'UTF-8'), 0, 1);
-$pdf->Ln(2);
+if ($mode === 'analytique') {
+    $pdf->Cell(60, 6, mb_convert_encoding('Bons: ' . number_format($totalBons, 0, ',', ' '), 'ISO-8859-1', 'UTF-8'), 0, 0);
+    $pdf->Cell(70, 6, mb_convert_encoding('Voyages (équiv.): ' . number_format((int)round($totalTripsEq), 0, ',', ' '), 'ISO-8859-1', 'UTF-8'), 0, 0);
+    $pdf->Cell(60, 6, mb_convert_encoding('Carburant estimé: ' . number_format($totalLitresCarburant, 0, ',', ' ') . ' L', 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->Cell(90, 6, mb_convert_encoding('m³ transportés: ' . rtrim(rtrim(number_format($totalQte, 2, ',', ' '), '0'), ','), 'ISO-8859-1', 'UTF-8'), 0, 1);
+    // Objectifs
+    $pdf->SetFont('Arial', 'B', 9);
+    $pdf->Cell(0, 6, mb_convert_encoding('Objectifs', 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->SetFont('Arial', '', 9);
+    $pdf->Cell(0, 5, mb_convert_encoding('Volume: 4 182,10 m³  •  Avancement: ' . number_format($progressVol, 1, ',', ' ') . '%  •  Restant: ' . rtrim(rtrim(number_format($restantVol, 2, ',', ' '), '0'), ',') . ' m³', 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->Cell(0, 5, mb_convert_encoding('Voyages: 218  •  Avancement: ' . number_format($progressTrip, 1, ',', ' ') . '%  •  Restant: ' . number_format($restantTrip, 0, ',', ' '), 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->Ln(2);
+} elseif ($mode === 'financier') {
+    $pdf->Cell(60, 6, mb_convert_encoding('Bons: ' . number_format($totalBons, 0, ',', ' '), 'ISO-8859-1', 'UTF-8'), 0, 0);
+    $pdf->Cell(70, 6, mb_convert_encoding('Montant total: ' . number_format($totalMontant, 0, ',', ' ') . ' FCFA', 'ISO-8859-1', 'UTF-8'), 0, 0);
+    $pdf->Cell(60, 6, mb_convert_encoding('Frais: ' . number_format($sumFraisRoute, 0, ',', ' ') . '  •  Solde: ' . number_format($sumSolde, 0, ',', ' '), 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->Ln(2);
+} else { // global
+    // Bloc analytique
+    $pdf->Cell(60, 6, mb_convert_encoding('Bons: ' . number_format($totalBons, 0, ',', ' '), 'ISO-8859-1', 'UTF-8'), 0, 0);
+    $pdf->Cell(70, 6, mb_convert_encoding('Voyages (équiv.): ' . number_format((int)round($totalTripsEq), 0, ',', ' '), 'ISO-8859-1', 'UTF-8'), 0, 0);
+    $pdf->Cell(60, 6, mb_convert_encoding('Carburant estimé: ' . number_format($totalLitresCarburant, 0, ',', ' ') . ' L', 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->Cell(90, 6, mb_convert_encoding('m³ transportés: ' . rtrim(rtrim(number_format($totalQte, 2, ',', ' '), '0'), ','), 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->SetFont('Arial', '', 9);
+    $pdf->Cell(0, 5, mb_convert_encoding('Objectifs — Volume: 4 182,10 m³ (' . number_format($progressVol, 1, ',', ' ') . '%)  •  Voyages: 218 (' . number_format($progressTrip, 1, ',', ' ') . '%)', 'ISO-8859-1', 'UTF-8'), 0, 1);
+    // Bloc financier
+    $pdf->Cell(0, 6, mb_convert_encoding('Montant total: ' . number_format($totalMontant, 0, ',', ' ') . ' FCFA  •  Frais: ' . number_format($sumFraisRoute, 0, ',', ' ') . '  •  Solde: ' . number_format($sumSolde, 0, ',', ' '), 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->Ln(2);
+}
 
-// Graphiques (simples)
+// Graphiques (simples) selon le mode
 $x = 10;
-$w = 190;
+$w = $pdf->GetPageWidth() - 20;
 $h = 45;
 $gapY = 6;
-$y = $pdf->GetY();
 $pdf->SetFont('Arial', 'B', 9);
 $pdf->SetTextColor(55, 65, 81);
-$pdf->Cell(0, 5, mb_convert_encoding('Montants par jour', 'ISO-8859-1', 'UTF-8'), 0, 1);
-$pdf->drawLineChart($x, $pdf->GetY(), $w, $h, $chartDays, $chartMontants, [202, 138, 4]);
-$pdf->Ln($h + $gapY);
-$pdf->SetFont('Arial', 'B', 9);
-$pdf->Cell(0, 5, mb_convert_encoding('Top bénéficiaires (montants)', 'ISO-8859-1', 'UTF-8'), 0, 1);
-$pdf->drawHBarChart($x, $pdf->GetY(), $w, 40, $topBenefLabels, $topBenefValues, [134, 239, 172]);
-$pdf->Ln(42 + $gapY);
-$pdf->SetFont('Arial', 'B', 9);
-$pdf->Cell(0, 5, mb_convert_encoding('Quantités par jour (m³)', 'ISO-8859-1', 'UTF-8'), 0, 1);
-$pdf->drawBarChart($x, $pdf->GetY(), $w, $h, $chartDays, $chartQuantites, [250, 204, 21]);
-$pdf->Ln($h + $gapY);
+if ($mode === 'analytique') {
+    // Voyages équivalents par jour
+    $pdf->Cell(0, 5, mb_convert_encoding('Voyages (équiv.) par jour', 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->drawLineChart($x, $pdf->GetY(), $w, $h, $chartDays, $chartTrips, [59, 130, 246]);
+    $pdf->Ln($h + $gapY);
+    // Litres par jour
+    $pdf->Cell(0, 5, mb_convert_encoding('Litres par jour', 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->drawBarChart($x, $pdf->GetY(), $w, $h, $chartDays, $chartLiters, [16, 185, 129]);
+    $pdf->Ln($h + $gapY);
+    // Quantités par jour (m³)
+    $pdf->Cell(0, 5, mb_convert_encoding('Quantités par jour (m³)', 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->drawBarChart($x, $pdf->GetY(), $w, $h, $chartDays, $chartQuantites, [250, 204, 21]);
+    $pdf->Ln($h + $gapY);
+    // Top bénéficiaires (voyages)
+    $pdf->Cell(0, 5, mb_convert_encoding('Top bénéficiaires (voyages équiv.)', 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->drawHBarChart($x, $pdf->GetY(), $w, 40, $topBenefTripsLabels, $topBenefTripsValues, [134, 239, 172]);
+    $pdf->Ln(42 + $gapY);
+} elseif ($mode === 'financier') {
+    // Montants par jour
+    $pdf->Cell(0, 5, mb_convert_encoding('Montants par jour', 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->drawLineChart($x, $pdf->GetY(), $w, $h, $chartDays, $chartMontants, [202, 138, 4]);
+    $pdf->Ln($h + $gapY);
+    // Top bénéficiaires (montants)
+    $pdf->Cell(0, 5, mb_convert_encoding('Top bénéficiaires (montants)', 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->drawHBarChart($x, $pdf->GetY(), $w, 40, $topBenefLabels, $topBenefValues, [134, 239, 172]);
+    $pdf->Ln(42 + $gapY);
+} else { // global
+    // Montants par jour
+    $pdf->Cell(0, 5, mb_convert_encoding('Montants par jour', 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->drawLineChart($x, $pdf->GetY(), $w, $h, $chartDays, $chartMontants, [202, 138, 4]);
+    $pdf->Ln($h + $gapY);
+    // Quantités par jour (m³)
+    $pdf->Cell(0, 5, mb_convert_encoding('Quantités par jour (m³)', 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->drawBarChart($x, $pdf->GetY(), $w, $h, $chartDays, $chartQuantites, [250, 204, 21]);
+    $pdf->Ln($h + $gapY);
+    // Voyages équiv. par jour
+    $pdf->Cell(0, 5, mb_convert_encoding('Voyages (équiv.) par jour', 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->drawLineChart($x, $pdf->GetY(), $w, $h, $chartDays, $chartTrips, [59, 130, 246]);
+    $pdf->Ln($h + $gapY);
+    // Top bénéficiaires (montants)
+    $pdf->Cell(0, 5, mb_convert_encoding('Top bénéficiaires (montants)', 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->drawHBarChart($x, $pdf->GetY(), $w, 40, $topBenefLabels, $topBenefValues, [134, 239, 172]);
+    $pdf->Ln(42 + $gapY);
+}
 
-// En-têtes (étendues)
+// En-têtes et tableaux selon le mode
 $pdf->SetFont('Arial', 'B', 9);
 $pdf->SetFillColor(250, 204, 21);
 $pdf->SetTextColor(120, 53, 15);
-$pdf->Cell(18, 7, mb_convert_encoding('N° Bon', 'ISO-8859-1', 'UTF-8'), 1, 0, 'C', true);
-$pdf->Cell(16, 7, mb_convert_encoding('N° Fiche', 'ISO-8859-1', 'UTF-8'), 1, 0, 'C', true);
-$pdf->Cell(16, 7, 'Date', 1, 0, 'C', true);
-$pdf->Cell(26, 7, mb_convert_encoding('Bénéficiaire', 'ISO-8859-1', 'UTF-8'), 1, 0, 'C', true);
-$pdf->Cell(26, 7, mb_convert_encoding('Chauffeur', 'ISO-8859-1', 'UTF-8'), 1, 0, 'C', true);
-$pdf->Cell(20, 7, mb_convert_encoding('Matricule', 'ISO-8859-1', 'UTF-8'), 1, 0, 'C', true);
-$pdf->Cell(12, 7, mb_convert_encoding('m³', 'ISO-8859-1', 'UTF-8'), 1, 0, 'C', true);
-$pdf->Cell(16, 7, mb_convert_encoding('Frais', 'ISO-8859-1', 'UTF-8'), 1, 0, 'C', true);
-$pdf->Cell(16, 7, mb_convert_encoding('Solde', 'ISO-8859-1', 'UTF-8'), 1, 0, 'C', true);
-$pdf->Cell(24, 7, 'Montant', 1, 1, 'C', true);
+if ($mode === 'analytique') {
+    // 9 colonnes sans financier
+    $headers = ['N° Bon', 'N° Fiche', 'Date', 'Bénéficiaire', 'Chauffeur', 'Matricule', 'm³', 'Voy.', 'Litres'];
+    $widths = [18, 16, 16, 34, 34, 24, 14, 16, 20];
+    foreach ($widths as $i => $wcol) {
+        $pdf->Cell($wcol, 7, mb_convert_encoding($headers[$i], 'ISO-8859-1', 'UTF-8'), 1, $i === count($headers) - 1 ? 1 : 0, 'C', true);
+    }
+    $pdf->SetFont('Arial', '', 9);
+    $pdf->SetTextColor(55, 65, 81);
+    $pdf->SetWidths($widths);
+    $pdf->SetAligns(['L', 'L', 'C', 'L', 'L', 'L', 'R', 'R', 'R']);
+    foreach ($demandes as $d) {
+        $pf = pdf_parse_fields($d['motif'] ?? '', $d['precision_fiche'] ?? '');
+        $qDb = $d['quantite'] ?? null;
+        $q = (is_numeric($qDb) && (float)$qDb > 0) ? (float)$qDb : (float)($pf['quantite'] ?? 0);
+        $mval = (float)($d['montant'] ?? 0);
+        $trEq = $mval > 0 ? ($mval / $basePerTrip) : 0;
+        $litEq = $trEq * $litersPerTrip;
+        $row = [
+            mb_convert_encoding((string)$d['code_bon'], 'ISO-8859-1', 'UTF-8'),
+            mb_convert_encoding((string)$d['num_fiche'], 'ISO-8859-1', 'UTF-8'),
+            date('d/m/Y', strtotime($d['date_demande'])),
+            mb_convert_encoding((string)$d['nom_beneficiaire'], 'ISO-8859-1', 'UTF-8'),
+            mb_convert_encoding((string)$pf['nom'], 'ISO-8859-1', 'UTF-8'),
+            mb_convert_encoding((string)$pf['matricule'], 'ISO-8859-1', 'UTF-8'),
+            rtrim(rtrim(number_format($q, 2, ',', ' '), '0'), ','),
+            number_format((int)round($trEq), 0, ',', ' '),
+            number_format((int)round($litEq), 0, ',', ' '),
+        ];
+        $pdf->Row($row, 5);
+    }
+    // Totaux
+    $pdf->SetFont('Arial', 'B', 10);
+    $pdf->SetTextColor(120, 53, 15);
+    // Largeur des 6 premières colonnes: 18+16+16+34+34+24 = 142
+    $pdf->Cell(142, 7, mb_convert_encoding('Totaux', 'ISO-8859-1', 'UTF-8'), 1);
+    $pdf->Cell(14, 7, rtrim(rtrim(number_format($totalQte, 2, ',', ' '), '0'), ','), 1, 0, 'R');
+    $pdf->Cell(16, 7, number_format((int)round($totalTripsEq), 0, ',', ' '), 1, 0, 'R');
+    $pdf->Cell(20, 7, number_format((int)round($totalLitresCarburant), 0, ',', ' '), 1, 1, 'R');
+} elseif ($mode === 'financier') {
+    // Cols: Bon, Fiche, Date, Bénéficiaire, Montant, Frais, Solde
+    $headers = ['N° Bon', 'N° Fiche', 'Date', 'Bénéficiaire', 'Montant', 'Frais', 'Solde'];
+    $widths = [24, 24, 20, 80, 32, 32, 32];
+    foreach ($widths as $i => $wcol) {
+        $pdf->Cell($wcol, 7, mb_convert_encoding($headers[$i], 'ISO-8859-1', 'UTF-8'), 1, $i === count($headers) - 1 ? 1 : 0, 'C', true);
+    }
+    $pdf->SetFont('Arial', '', 9);
+    $pdf->SetTextColor(55, 65, 81);
+    $pdf->SetWidths($widths);
+    $pdf->SetAligns(['L', 'L', 'C', 'L', 'R', 'R', 'R']);
+    foreach ($demandes as $d) {
+        $pf = pdf_parse_fields($d['motif'] ?? '', $d['precision_fiche'] ?? '');
+        $row = [
+            mb_convert_encoding((string)$d['code_bon'], 'ISO-8859-1', 'UTF-8'),
+            mb_convert_encoding((string)$d['num_fiche'], 'ISO-8859-1', 'UTF-8'),
+            date('d/m/Y', strtotime($d['date_demande'])),
+            mb_convert_encoding((string)$d['nom_beneficiaire'], 'ISO-8859-1', 'UTF-8'),
+            number_format((float)($d['montant'] ?? 0), 0, ',', ' '),
+            number_format((int)($pf['frais'] ?? 0), 0, ',', ' '),
+            number_format((int)($pf['solde'] ?? 0), 0, ',', ' '),
+        ];
+        $pdf->Row($row, 5);
+    }
+    // Totaux financiers
+    $pdf->SetFont('Arial', 'B', 10);
+    $pdf->SetTextColor(120, 53, 15);
+    // Largeur jusqu'à Beneficiaire: 24+24+20+80 = 148
+    $pdf->Cell(148, 7, mb_convert_encoding('Totaux', 'ISO-8859-1', 'UTF-8'), 1);
+    $pdf->Cell(32, 7, number_format($totalMontant, 0, ',', ' '), 1, 0, 'R');
+    $pdf->Cell(32, 7, number_format($sumFraisRoute, 0, ',', ' '), 1, 0, 'R');
+    $pdf->Cell(32, 7, number_format($sumSolde, 0, ',', ' '), 1, 1, 'R');
+} else {
+    // Global: structure d’origine
+    $pdf->SetFont('Arial', 'B', 9);
+    $pdf->SetFillColor(250, 204, 21);
+    $pdf->SetTextColor(120, 53, 15);
+    $pdf->Cell(18, 7, mb_convert_encoding('N° Bon', 'ISO-8859-1', 'UTF-8'), 1, 0, 'C', true);
+    $pdf->Cell(16, 7, mb_convert_encoding('N° Fiche', 'ISO-8859-1', 'UTF-8'), 1, 0, 'C', true);
+    $pdf->Cell(16, 7, 'Date', 1, 0, 'C', true);
+    $pdf->Cell(26, 7, mb_convert_encoding('Bénéficiaire', 'ISO-8859-1', 'UTF-8'), 1, 0, 'C', true);
+    $pdf->Cell(26, 7, mb_convert_encoding('Chauffeur', 'ISO-8859-1', 'UTF-8'), 1, 0, 'C', true);
+    $pdf->Cell(20, 7, mb_convert_encoding('Matricule', 'ISO-8859-1', 'UTF-8'), 1, 0, 'C', true);
+    $pdf->Cell(12, 7, mb_convert_encoding('m³', 'ISO-8859-1', 'UTF-8'), 1, 0, 'C', true);
+    $pdf->Cell(16, 7, mb_convert_encoding('Frais', 'ISO-8859-1', 'UTF-8'), 1, 0, 'C', true);
+    $pdf->Cell(16, 7, mb_convert_encoding('Solde', 'ISO-8859-1', 'UTF-8'), 1, 0, 'C', true);
+    $pdf->Cell(24, 7, 'Montant', 1, 1, 'C', true);
 
-// Tableau détaillé avec retours à la ligne
-$pdf->SetFont('Arial', '', 9);
-$pdf->SetTextColor(55, 65, 81);
-$pdf->SetWidths([18, 16, 16, 26, 26, 20, 12, 16, 16, 24]);
-$pdf->SetAligns(['L', 'L', 'C', 'L', 'L', 'L', 'R', 'R', 'R', 'R']);
-foreach ($demandes as $d) {
-    $pf = pdf_parse_fields($d['motif'] ?? '', $d['precision_fiche'] ?? '');
-    $qDb = $d['quantite'] ?? null;
-    $q = (is_numeric($qDb) && (float)$qDb > 0) ? (float)$qDb : (float)($pf['quantite'] ?? 0);
-    $row = [
-        mb_convert_encoding((string)$d['code_bon'], 'ISO-8859-1', 'UTF-8'),
-        mb_convert_encoding((string)$d['num_fiche'], 'ISO-8859-1', 'UTF-8'),
-        date('d/m/Y', strtotime($d['date_demande'])),
-        mb_convert_encoding((string)$d['nom_beneficiaire'], 'ISO-8859-1', 'UTF-8'),
-        mb_convert_encoding((string)$pf['nom'], 'ISO-8859-1', 'UTF-8'),
-        mb_convert_encoding((string)$pf['matricule'], 'ISO-8859-1', 'UTF-8'),
-        rtrim(rtrim(number_format($q, 2, ',', ' '), '0'), ','),
-        number_format((int)($pf['frais'] ?? 0), 0, ',', ' '),
-        number_format((int)($pf['solde'] ?? 0), 0, ',', ' '),
-        number_format((float)($d['montant'] ?? 0), 0, ',', ' '),
-    ];
-    $pdf->Row($row, 5);
+    $pdf->SetFont('Arial', '', 9);
+    $pdf->SetTextColor(55, 65, 81);
+    $pdf->SetWidths([18, 16, 16, 26, 26, 20, 12, 16, 16, 24]);
+    $pdf->SetAligns(['L', 'L', 'C', 'L', 'L', 'L', 'R', 'R', 'R', 'R']);
+    foreach ($demandes as $d) {
+        $pf = pdf_parse_fields($d['motif'] ?? '', $d['precision_fiche'] ?? '');
+        $qDb = $d['quantite'] ?? null;
+        $q = (is_numeric($qDb) && (float)$qDb > 0) ? (float)$qDb : (float)($pf['quantite'] ?? 0);
+        $row = [
+            mb_convert_encoding((string)$d['code_bon'], 'ISO-8859-1', 'UTF-8'),
+            mb_convert_encoding((string)$d['num_fiche'], 'ISO-8859-1', 'UTF-8'),
+            date('d/m/Y', strtotime($d['date_demande'])),
+            mb_convert_encoding((string)$d['nom_beneficiaire'], 'ISO-8859-1', 'UTF-8'),
+            mb_convert_encoding((string)$pf['nom'], 'ISO-8859-1', 'UTF-8'),
+            mb_convert_encoding((string)$pf['matricule'], 'ISO-8859-1', 'UTF-8'),
+            rtrim(rtrim(number_format($q, 2, ',', ' '), '0'), ','),
+            number_format((int)($pf['frais'] ?? 0), 0, ',', ' '),
+            number_format((int)($pf['solde'] ?? 0), 0, ',', ' '),
+            number_format((float)($d['montant'] ?? 0), 0, ',', ' '),
+        ];
+        $pdf->Row($row, 5);
+    }
+    // Totaux
+    $pdf->SetFont('Arial', 'B', 10);
+    $pdf->SetTextColor(120, 53, 15);
+    // Colonnes cumulées jusqu'à Matricule (18+16+16+26+26+20 = 122)
+    $pdf->Cell(122, 7, mb_convert_encoding('Totaux', 'ISO-8859-1', 'UTF-8'), 1);
+    $pdf->Cell(12, 7, rtrim(rtrim(number_format($totalQte, 2, ',', ' '), '0'), ','), 1, 0, 'R');
+    $pdf->Cell(16, 7, '', 1, 0);
+    $pdf->Cell(16, 7, '', 1, 0);
+    $pdf->Cell(24, 7, number_format($totalMontant, 0, ',', ' '), 1, 1, 'R');
 }
 
-// Total
-// Totaux
-$pdf->SetFont('Arial', 'B', 10);
-$pdf->SetTextColor(120, 53, 15);
-// Colonnes cumulées jusqu'à Matricule (18+16+16+26+26+20 = 122)
-$pdf->Cell(122, 7, mb_convert_encoding('Totaux', 'ISO-8859-1', 'UTF-8'), 1);
-$pdf->Cell(12, 7, rtrim(rtrim(number_format($totalQte, 2, ',', ' '), '0'), ','), 1, 0, 'R');
-$pdf->Cell(16, 7, '', 1, 0);
-$pdf->Cell(16, 7, '', 1, 0);
-$pdf->Cell(24, 7, number_format($totalMontant, 0, ',', ' '), 1, 1, 'R');
-
-$pdf->Output('D', 'recap_carburant.pdf');
+$fname = 'recap_carburant_' . $mode . '.pdf';
+$pdf->Output('D', $fname);
 exit;
