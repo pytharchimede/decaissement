@@ -9,6 +9,7 @@ $date_fin = $_GET['date_fin'] ?? '';
 $demandeur = $_GET['demandeur'] ?? '';
 $motif = $_GET['motif'] ?? '';
 $num_fiche = $_GET['num_fiche'] ?? '';
+$filtre_fournisseur = $_GET['fournisseur'] ?? '';
 
 $conditions = [];
 $params = [];
@@ -98,6 +99,7 @@ fputcsv($output, [
     'Bénéficiaire',
     'Chauffeur',
     'Matricule',
+    'Fournisseur',
     'Quantité m3',
     'Voyages (équiv.)',
     'Litres (équiv.)',
@@ -134,8 +136,23 @@ function parse_fields($motif, $precision)
 $basePerTrip = 33750; // FCFA par voyage (50 L)
 $litersPerTrip = 50;
 
+// Mapping matricule→fournisseur
+require_once __DIR__ . '/model/CamionFournisseurRepository.php';
+$repo = new CamionFournisseurRepository($pdo);
+$map = $repo->getAllMappings();
+$norm = function ($m) {
+    $m = strtoupper(trim((string)$m));
+    return preg_replace('/\s+/', '', $m);
+};
+
 foreach ($rows as $r) {
     $pf = parse_fields($r['motif'] ?? '', $r['precision_fiche'] ?? '');
+    $fournisseur = '';
+    if (!empty($pf['matricule'])) {
+        $k = $norm($pf['matricule']);
+        if (isset($map[$k])) $fournisseur = $map[$k];
+    }
+    if ($filtre_fournisseur !== '' && strcasecmp($fournisseur, $filtre_fournisseur) !== 0) continue;
     $m = isset($r['montant']) ? (float)$r['montant'] : 0.0;
     $trEq = $m > 0 ? ($m / $basePerTrip) : 0;
     $trEqInt = (int)round($trEq);
@@ -147,6 +164,7 @@ foreach ($rows as $r) {
         $r['nom_beneficiaire'],
         $pf['nom'],
         $pf['matricule'],
+        $fournisseur,
         $pf['quantite'] !== '' ? $pf['quantite'] : str_replace('.', ',', (string)($r['quantite'] ?? '0')),
         $trEqInt,
         $litEq,

@@ -3,6 +3,7 @@ session_start();
 
 require_once __DIR__ . '/model/Database.php';
 require_once __DIR__ . '/model/DemandeEssence.php';
+require_once __DIR__ . '/model/CamionFournisseurRepository.php';
 
 $pdo = (new Database())->getConnection();
 $demandeEssenceObj = new DemandeEssence($pdo);
@@ -11,6 +12,7 @@ $demandeEssenceObj = new DemandeEssence($pdo);
 $date_debut = $_GET['date_debut'] ?? '';
 $date_fin = $_GET['date_fin'] ?? '';
 $demandeur = $_GET['demandeur'] ?? '';
+$filtre_fournisseur = $_GET['fournisseur'] ?? '';
 $motif = $_GET['motif'] ?? '';
 $num_fiche = $_GET['num_fiche'] ?? '';
 // Objectifs (avec valeurs par défaut adaptées au chantier)
@@ -103,6 +105,38 @@ $sql = "SELECT e.*, f.precision_fiche
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $demandes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Enrichir avec fournisseur (via matricule extrait) et appliquer filtre fournisseur
+$repoF = new CamionFournisseurRepository($pdo);
+$mapF = $repoF->getAllMappings(); // [matricule_normalise => fournisseur]
+
+function _norm_matricule(string $m): string
+{
+    $m = strtoupper(trim($m));
+    return preg_replace('/\s+/', '', $m);
+}
+function _extract_matricule(?string $motif, ?string $precision): ?string
+{
+    $t = trim(implode("\n", array_filter([(string)($motif ?? ''), (string)($precision ?? '')])));
+    if ($t === '') return null;
+    if (preg_match('/Matricule\s*:\s*([^\r\n]+)/mi', $t, $m)) return trim($m[1]);
+    return null;
+}
+
+$demandes_enrichies = [];
+foreach ($demandes as $d) {
+    $mat = _extract_matricule($d['motif'] ?? '', $d['precision_fiche'] ?? '') ?? '';
+    $fou = '';
+    if ($mat !== '') {
+        $key = _norm_matricule($mat);
+        if (isset($mapF[$key])) $fou = $mapF[$key];
+    }
+    $d['__matricule_extrait'] = $mat;
+    $d['__fournisseur'] = $fou;
+    if ($filtre_fournisseur !== '' && strcasecmp($fou, $filtre_fournisseur) !== 0) continue;
+    $demandes_enrichies[] = $d;
+}
+$demandes = $demandes_enrichies;
 
 // Helper: parsing combiné depuis motif et precision_fiche
 function parseFieldsCombined(?string $motif, ?string $precision): array
@@ -296,6 +330,7 @@ $chartBenefMontants = array_values($topBenef);
             <input type="text" name="demandeur" value="<?= htmlspecialchars($demandeur) ?>" class="border rounded px-2 py-1 text-xs flex-1" placeholder="Demandeur">
             <input type="text" name="motif" value="<?= htmlspecialchars($motif) ?>" class="border rounded px-2 py-1 text-xs flex-1" placeholder="Motif">
             <input type="text" name="num_fiche" value="<?= htmlspecialchars($num_fiche) ?>" class="border rounded px-2 py-1 text-xs flex-1" placeholder="N° Fiche">
+            <input type="text" name="fournisseur" value="<?= htmlspecialchars($filtre_fournisseur) ?>" class="border rounded px-2 py-1 text-xs flex-1" placeholder="Fournisseur (filtre)">
             <input type="number" step="0.01" name="target_m3" value="<?= htmlspecialchars(number_format($target_m3, 2, '.', '')) ?>" class="border rounded px-2 py-1 text-xs w-28" placeholder="Obj. m³">
             <input type="number" step="1" name="target_trips" value="<?= htmlspecialchars((string)$target_trips) ?>" class="border rounded px-2 py-1 text-xs w-28" placeholder="Obj. voyages">
             <button type="submit" class="bg-yellow-400 hover:bg-yellow-500 text-black px-4 py-1 rounded font-bold text-xs">Rechercher</button>
@@ -324,6 +359,10 @@ $chartBenefMontants = array_values($topBenef);
                 </div>
             </div>
             <div class="flex gap-2">
+                <a href="admin_camions_fournisseurs.php"
+                    class="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-3 py-1 rounded text-xs font-bold flex items-center gap-1 shadow">
+                    <i class="fa-solid fa-truck"></i> Affecter camions
+                </a>
                 <a href="export_carburant_excel.php?<?= http_build_query($_GET) ?>"
                     class="bg-green-100 hover:bg-green-200 text-green-800 px-3 py-1 rounded text-xs font-bold flex items-center gap-1 shadow">
                     <i class="fa-solid fa-file-excel"></i> Export Excel
@@ -454,6 +493,7 @@ $chartBenefMontants = array_values($topBenef);
                     <div class="mb-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                         <div><span class="text-gray-500">Chauffeur:</span> <span class="font-semibold"><?= htmlspecialchars($pf['nom'] ?? '-') ?></span></div>
                         <div><span class="text-gray-500">Matricule:</span> <span class="font-mono"><?= htmlspecialchars($pf['matricule'] ?? '-') ?></span></div>
+                        <div class="sm:col-span-2"><span class="text-gray-500">Fournisseur:</span> <span class="font-semibold"><?= htmlspecialchars($d['__fournisseur'] ?? '') ?></span></div>
                         <div><span class="text-gray-500">Frais route:</span> <span class="font-semibold"><?= isset($pf['frais_route']) ? number_format((int)$pf['frais_route'], 0, ',', ' ') . ' FCFA' : '-' ?></span></div>
                         <div><span class="text-gray-500">Solde:</span> <span class="font-semibold"><?= isset($pf['solde']) ? number_format((int)$pf['solde'], 0, ',', ' ') . ' FCFA' : '-' ?></span></div>
                         <div><span class="text-gray-500">Terre (m³):</span> <span class="font-semibold"><?= rtrim(rtrim(number_format(isset($pf['quantite']) ? (float)$pf['quantite'] : 0, 2, ',', ' '), '0'), ',') ?></span></div>
@@ -499,6 +539,39 @@ $chartBenefMontants = array_values($topBenef);
         </div>
     </div>
 
+    <?php
+    // Synthèse Voyages par fournisseur
+    $basePerTrip = 33750.0;
+    $voyagesParFournisseur = [];
+    foreach ($demandes as $d) {
+        $f = trim((string)($d['__fournisseur'] ?? ''));
+        if ($f === '') $f = 'Non affecté';
+        $m = (float)($d['montant'] ?? 0);
+        $tr = $m > 0 ? ($m / $basePerTrip) : 0.0;
+        if (!isset($voyagesParFournisseur[$f])) $voyagesParFournisseur[$f] = 0.0;
+        $voyagesParFournisseur[$f] += $tr;
+    }
+    arsort($voyagesParFournisseur);
+    ?>
+    <div class="max-w-6xl mx-auto mt-6">
+        <div class="bg-white rounded-xl p-4 shadow border border-yellow-100">
+            <div class="font-semibold text-gray-700 mb-2">Voyages (équiv.) par fournisseur</div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <?php foreach ($voyagesParFournisseur as $f => $tr): ?>
+                    <div class="border rounded p-3">
+                        <div class="text-xs text-gray-500">Fournisseur</div>
+                        <div class="text-sm font-bold text-yellow-700"><?= htmlspecialchars($f) ?></div>
+                        <div class="text-xs text-gray-500 mt-1">Voyages (équiv.)</div>
+                        <div class="text-lg font-extrabold text-yellow-800"><?= number_format((int)round($tr), 0, ',', ' ') ?></div>
+                    </div>
+                <?php endforeach; ?>
+                <?php if (empty($voyagesParFournisseur)): ?>
+                    <div class="text-center text-gray-400">Aucune donnée</div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
     <!-- Tableau détaillé filtrable -->
     <div class="max-w-6xl mx-auto mt-6 p-4">
         <div class="bg-white rounded-xl p-4 shadow">
@@ -519,11 +592,11 @@ $chartBenefMontants = array_values($topBenef);
                             <th class="px-2 py-1">Bénéficiaire</th>
                             <th class="px-2 py-1">Chauffeur</th>
                             <th class="px-2 py-1">Matricule</th>
+                            <th class="px-2 py-1">Fournisseur</th>
                             <th class="px-2 py-1">Quantité</th>
                             <th class="px-2 py-1">Frais route</th>
                             <th class="px-2 py-1">Solde</th>
                             <th class="px-2 py-1">Motif</th>
-                            <th class="px-2 py-1">Montant</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -543,6 +616,7 @@ $chartBenefMontants = array_values($topBenef);
                                 <td class="px-2 py-1"><?= htmlspecialchars($d['nom_beneficiaire']) ?></td>
                                 <td class="px-2 py-1"><?= htmlspecialchars($pf['nom'] ?? '') ?></td>
                                 <td class="px-2 py-1 font-mono"><?= htmlspecialchars($pf['matricule'] ?? '') ?></td>
+                                <td class="px-2 py-1"><?= htmlspecialchars($d['__fournisseur'] ?? '') ?></td>
                                 <td class="px-2 py-1 text-right"><?= rtrim(rtrim(number_format($qval, 2, ',', ' '), '0'), ',') ?></td>
                                 <td class="px-2 py-1 text-right"><?= isset($pf['frais_route']) ? number_format((int)$pf['frais_route'], 0, ',', ' ') : '' ?></td>
                                 <td class="px-2 py-1 text-right"><?= isset($pf['solde']) ? number_format((int)$pf['solde'], 0, ',', ' ') : '' ?></td>

@@ -16,6 +16,7 @@ $date_fin = $_GET['date_fin'] ?? '';
 $demandeur = $_GET['demandeur'] ?? '';
 $motif = $_GET['motif'] ?? '';
 $num_fiche = $_GET['num_fiche'] ?? '';
+$filtre_fournisseur = $_GET['fournisseur'] ?? '';
 
 $pdo = (new Database())->getConnection();
 $conditions = [];
@@ -104,7 +105,7 @@ $sheet = $spreadsheet->getActiveSheet();
 
 // --- EN-TÊTE DESIGN ---
 $row = 1;
-$sheet->mergeCells("A$row:L$row");
+$sheet->mergeCells("A$row:M$row");
 $sheet->setCellValue("A$row", "Liste des Bons Carburant");
 $sheet->getStyle("A$row")->getFont()->setBold(true)->setSize(16)->getColor()->setRGB('78350F');
 $sheet->getStyle("A$row")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
@@ -124,12 +125,12 @@ if ($demandeur) $paramText[] = "Demandeur : $demandeur";
 if ($motif) $paramText[] = "Motif : $motif";
 if ($num_fiche) $paramText[] = "N° Fiche : $num_fiche";
 if ($paramText) {
-    $sheet->mergeCells("A$row:L$row");
+    $sheet->mergeCells("A$row:M$row");
     $sheet->setCellValue("A$row", implode("   |   ", $paramText));
     $sheet->getStyle("A$row")->getFont()->setItalic(true)->setSize(10);
     $row++;
 }
-$sheet->mergeCells("A$row:L$row");
+$sheet->mergeCells("A$row:M$row");
 $sheet->setCellValue("A$row", "Date d'export : " . date('d/m/Y H:i'));
 $sheet->getStyle("A$row")->getFont()->setSize(10)->getColor()->setRGB('374151');
 $sheet->getStyle("A$row")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
@@ -143,6 +144,7 @@ $headers = [
     'Bénéficiaire',
     'Chauffeur',
     'Matricule',
+    'Fournisseur',
     'Quantité m3',
     'Voyages (équiv.)',
     'Litres (équiv.)',
@@ -151,9 +153,9 @@ $headers = [
     'Montant',
 ];
 $sheet->fromArray($headers, null, "A$row");
-$sheet->getStyle("A$row:L$row")->getFont()->setBold(true)->getColor()->setRGB('78350F');
-$sheet->getStyle("A$row:L$row")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FACC15');
-$sheet->getStyle("A$row:L$row")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+$sheet->getStyle("A$row:M$row")->getFont()->setBold(true)->getColor()->setRGB('78350F');
+$sheet->getStyle("A$row:M$row")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FACC15');
+$sheet->getStyle("A$row:M$row")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 $row++;
 
 // --- DONNÉES ---
@@ -164,8 +166,24 @@ $totalLitresEq = 0;
 // Constantes métier
 $basePerTrip = 33750; // FCFA par voyage
 $litersPerTrip = 50;
+
+// Mapping fournisseur
+require_once __DIR__ . '/model/CamionFournisseurRepository.php';
+$repo = new CamionFournisseurRepository($pdo);
+$mapF = $repo->getAllMappings();
+$norm = function ($m) {
+    $m = strtoupper(trim((string)$m));
+    return preg_replace('/\s+/', '', $m);
+};
+
 foreach ($demandes as $d) {
     $pf = xl_parse_fields($d['motif'] ?? '', $d['precision_fiche'] ?? '');
+    $fourn = '';
+    if (!empty($pf['matricule'])) {
+        $k = $norm($pf['matricule']);
+        if (isset($mapF[$k])) $fourn = $mapF[$k];
+    }
+    if ($filtre_fournisseur !== '' && strcasecmp($fourn, $filtre_fournisseur) !== 0) continue;
     $q = isset($d['quantite']) && $d['quantite'] !== '' && $d['quantite'] !== null ? (float)$d['quantite'] : (float)($pf['quantite'] ?? 0);
     $fr = isset($pf['frais']) ? (int)$pf['frais'] : null;
     $sd = isset($pf['solde']) ? (int)$pf['solde'] : null;
@@ -180,6 +198,7 @@ foreach ($demandes as $d) {
         $d['nom_beneficiaire'],
         $pf['nom'],
         $pf['matricule'],
+        $fourn,
         $q,
         $trEqInt,
         $litEq,
@@ -196,16 +215,16 @@ foreach ($demandes as $d) {
 
 // --- TOTAL ---
 // Totaux
-$sheet->setCellValue("F$row", "Totaux");
-$sheet->setCellValue("G$row", $totalQte);
-$sheet->setCellValue("H$row", $totalTripsEq);
-$sheet->setCellValue("I$row", $totalLitresEq);
-$sheet->setCellValue("L$row", "=SUM(L" . ($row - count($demandes)) . ":L" . ($row - 1) . ")");
-$sheet->getStyle("F$row:L$row")->getFont()->setBold(true)->getColor()->setRGB('78350F');
-$sheet->getStyle("F$row:L$row")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FACC15');
+$sheet->setCellValue("G$row", "Totaux");
+$sheet->setCellValue("H$row", $totalQte);
+$sheet->setCellValue("I$row", $totalTripsEq);
+$sheet->setCellValue("J$row", $totalLitresEq);
+$sheet->setCellValue("M$row", "=SUM(M" . ($row - count($demandes)) . ":M" . ($row - 1) . ")");
+$sheet->getStyle("G$row:M$row")->getFont()->setBold(true)->getColor()->setRGB('78350F');
+$sheet->getStyle("G$row:M$row")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FACC15');
 
 // --- LARGEURS AUTOMATIQUES ---
-foreach (range('A', 'L') as $col) {
+foreach (range('A', 'M') as $col) {
     $sheet->getColumnDimension($col)->setAutoSize(true);
 }
 
@@ -218,7 +237,7 @@ $styleArray = [
         ],
     ],
 ];
-$sheet->getStyle("A" . ($row - count($demandes)) . ":L$row")->applyFromArray($styleArray);
+$sheet->getStyle("A" . ($row - count($demandes)) . ":M$row")->applyFromArray($styleArray);
 
 // --- TÉLÉCHARGEMENT ---
 header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
