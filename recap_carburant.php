@@ -335,7 +335,7 @@ $chartBenefMontants = array_values($topBenef);
             <input type="number" step="1" name="target_trips" value="<?= htmlspecialchars((string)$target_trips) ?>" class="border rounded px-2 py-1 text-xs w-28" placeholder="Obj. voyages">
             <button type="submit" class="bg-yellow-400 hover:bg-yellow-500 text-black px-4 py-1 rounded font-bold text-xs">Rechercher</button>
         </form>
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
+        <div class="mb-4">
             <div class="grid grid-cols-2 md:grid-cols-5 gap-3 w-full">
                 <div class="bg-white rounded-xl p-3 shadow border border-yellow-100">
                     <div class="text-xs text-gray-500">Bons</div>
@@ -358,33 +358,39 @@ $chartBenefMontants = array_values($topBenef);
                     <div class="text-xl font-extrabold text-yellow-700"><?= rtrim(rtrim(number_format($totalQuantite, 2, ',', ' '), '0'), ',') ?> m³</div>
                 </div>
             </div>
-            <div class="flex gap-2">
-                <a href="admin_camions_fournisseurs.php"
-                    class="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-3 py-1 rounded text-xs font-bold flex items-center gap-1 shadow">
-                    <i class="fa-solid fa-truck"></i> Affecter camions
-                </a>
-                <a href="export_carburant_excel.php?<?= http_build_query($_GET) ?>"
-                    class="bg-green-100 hover:bg-green-200 text-green-800 px-3 py-1 rounded text-xs font-bold flex items-center gap-1 shadow">
-                    <i class="fa-solid fa-file-excel"></i> Export Excel
-                </a>
-                <div class="flex gap-1">
-                    <a href="export_carburant_pdf.php?<?= http_build_query(array_merge($_GET, ['mode' => 'analytique'])) ?>"
-                        class="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded text-xs font-bold flex items-center gap-1 shadow">
-                        <i class="fa-solid fa-chart-line"></i> PDF Analytique
+            <div class="mt-3 bg-white rounded-xl p-3 shadow border border-yellow-100">
+                <div class="text-xs uppercase tracking-wide text-gray-500 mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-bolt text-yellow-500"></i>
+                    Actions rapides
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <a href="admin_camions_fournisseurs.php"
+                        class="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-3 py-1 rounded text-xs font-bold inline-flex items-center gap-1 shadow w-full sm:w-auto">
+                        <i class="fa-solid fa-truck"></i> Affecter camions
                     </a>
-                    <a href="export_carburant_pdf.php?<?= http_build_query(array_merge($_GET, ['mode' => 'financier'])) ?>"
-                        class="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded text-xs font-bold flex items-center gap-1 shadow">
-                        <i class="fa-solid fa-sack-dollar"></i> PDF Financier
+                    <a href="export_carburant_excel.php?<?= http_build_query($_GET) ?>"
+                        class="bg-green-100 hover:bg-green-200 text-green-800 px-3 py-1 rounded text-xs font-bold inline-flex items-center gap-1 shadow w-full sm:w-auto">
+                        <i class="fa-solid fa-file-excel"></i> Export Excel
                     </a>
-                    <a href="export_carburant_pdf.php?<?= http_build_query(array_merge($_GET, ['mode' => 'global'])) ?>"
-                        class="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded text-xs font-bold flex items-center gap-1 shadow">
-                        <i class="fa-solid fa-list"></i> PDF Global
+                    <div class="flex flex-wrap gap-2">
+                        <a href="export_carburant_pdf.php?<?= http_build_query(array_merge($_GET, ['mode' => 'analytique'])) ?>"
+                            class="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded text-xs font-bold inline-flex items-center gap-1 shadow w-full sm:w-auto">
+                            <i class="fa-solid fa-chart-line"></i> PDF Analytique
+                        </a>
+                        <a href="export_carburant_pdf.php?<?= http_build_query(array_merge($_GET, ['mode' => 'financier'])) ?>"
+                            class="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded text-xs font-bold inline-flex items-center gap-1 shadow w-full sm:w-auto">
+                            <i class="fa-solid fa-sack-dollar"></i> PDF Financier
+                        </a>
+                        <a href="export_carburant_pdf.php?<?= http_build_query(array_merge($_GET, ['mode' => 'global'])) ?>"
+                            class="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded text-xs font-bold inline-flex items-center gap-1 shadow w-full sm:w-auto">
+                            <i class="fa-solid fa-list"></i> PDF Global
+                        </a>
+                    </div>
+                    <a href="export_carburant_csv.php?<?= http_build_query($_GET) ?>"
+                        class="bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1 rounded text-xs font-bold inline-flex items-center gap-1 shadow w-full sm:w-auto">
+                        <i class="fa-solid fa-file-csv"></i> Export CSV
                     </a>
                 </div>
-                <a href="export_carburant_csv.php?<?= http_build_query($_GET) ?>"
-                    class="bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1 rounded text-xs font-bold flex items-center gap-1 shadow">
-                    <i class="fa-solid fa-file-csv"></i> Export CSV
-                </a>
             </div>
         </div>
 
