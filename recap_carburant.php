@@ -289,7 +289,7 @@ $chartBenefMontants = array_values($topBenef);
                     <div class="text-xl font-extrabold text-yellow-700"><?= $totalBons ?></div>
                 </div>
                 <div class="bg-white rounded-xl p-3 shadow border border-yellow-100">
-                    <div class="text-xs text-gray-500">Montant total</div>
+                    <div class="text-xs text-gray-500">Montant total carburant</div>
                     <div class="text-xl font-extrabold text-yellow-700"><?= number_format($totalMontant, 0, ',', ' ') ?> FCFA</div>
                 </div>
                 <div class="bg-white rounded-xl p-3 shadow border border-yellow-100">
