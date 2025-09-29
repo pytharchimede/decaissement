@@ -509,6 +509,16 @@ switch ($endpoint) {
         }
         break;
 
+    case 'desactiver_bon':
+        if ($method === 'POST') {
+            $controller = new DemandeEssenceController();
+            $controller->desactiver();
+        } else {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+        }
+        break;
+
     default:
         http_response_code(404);
         echo json_encode(['error' => 'Endpoint not found']);
