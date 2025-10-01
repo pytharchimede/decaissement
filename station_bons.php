@@ -5,7 +5,7 @@ require_once __DIR__ . '/model/DemandeEssenceRepository.php';
 
 // Mot de passe très simple (pas de login). Idéalement le stocker en env.
 // Changez la valeur via la variable d'environnement STATION_BONS_PASS en production.
-$STATION_PASS = getenv('STATION_BONS_PASS') ?: 'station2025';
+$STATION_PASS = getenv('STATION_BONS_PASS') ?: '0788202420';
 
 // Protection: si non authentifié, afficher formulaire mot de passe
 if (!isset($_SESSION['station_ok']) || $_SESSION['station_ok'] !== true) {
@@ -252,7 +252,7 @@ $pendingCount = max(0, $totalCount - $servedCount);
                                 <a class="btn btn-outline-primary btn-sm" target="_blank" href="bon/bon_essence.php?id_bon=<?= urlencode($r['code_bon']) ?>">Voir</a>
                                 <a class="btn btn-outline-warning btn-sm" target="_blank" href="bon/servir_essence.php?id_bon=<?= urlencode($r['code_bon']) ?>">Joindre reçu</a>
                                 <?php if ($hasReceipt): ?>
-                                    <a class="btn btn-outline-success btn-sm" target="_blank" href="<?= htmlspecialchars($img) ?>">Voir reçu</a>
+                                    <a class="btn btn-outline-success btn-sm" target="_blank" href="https://fidest.ci/decaissement/uploads/recu_station/<?= htmlspecialchars($img) ?>">Voir reçu</a>
                                 <?php endif; ?>
                             </div>
                         </div>

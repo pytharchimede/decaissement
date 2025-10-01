@@ -15,6 +15,11 @@ $demandeur = $_GET['demandeur'] ?? '';
 $filtre_fournisseur = $_GET['fournisseur'] ?? '';
 $motif = $_GET['motif'] ?? '';
 $num_fiche = $_GET['num_fiche'] ?? '';
+// Afficher toutes les interventions (désactiver la déduplication par bon)
+$show_all = isset($_GET['show_all']) && $_GET['show_all'] == '1';
+// Filtre "format structuré" appliqué par défaut, mais désactivable via structured_only=0 (option masquée)
+// Champs requis: Nom, Matricule, Téléphone/Tel, Quantité chargée, Frais de route, Solde, Carburant (GERANT optionnel)
+$structured_only = !isset($_GET['structured_only']) || $_GET['structured_only'] !== '0';
 // Objectifs (avec valeurs par défaut adaptées au chantier)
 $target_m3 = isset($_GET['target_m3']) && $_GET['target_m3'] !== '' ? (float)str_replace(',', '.', $_GET['target_m3']) : 4182.10;
 $target_trips = isset($_GET['target_trips']) && $_GET['target_trips'] !== '' ? (int)$_GET['target_trips'] : 218;
@@ -23,11 +28,12 @@ $target_trips = isset($_GET['target_trips']) && $_GET['target_trips'] !== '' ? (
 $conditions = [];
 $params = [];
 $scope = $_GET['scope'] ?? '';
+// Si un SQL de lot (chantier) existe en session et qu'aucun scope n'est fourni, forcer par défaut le scope chantier
+if ($scope === '' && !empty($_SESSION['batch_custom_sql']) && is_string($_SESSION['batch_custom_sql'])) {
+    $scope = 'batch';
+}
 
-// Filtre spécifique demandé: uniquement la dotation 50 l/j purge
-$vehiculeFilter = "Dotation carburant (50 l/j) purge";
-$conditions[] = "e.vehicule LIKE :vehiculeFilter";
-$params[':vehiculeFilter'] = $vehiculeFilter . '%';
+// Pas de filtre sur le véhicule: inclure tous les bons, filtrage via l'UI
 
 // Exclure les bons désactivés
 $conditions[] = "(e.desactive IS NULL OR e.desactive = 0)";
@@ -90,18 +96,27 @@ if ($num_fiche) {
 }
 
 $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
-// Déduplication stricte par code_bon via sous-requête (on prend le MIN(id) par bon)
-$whereSub = $where ? preg_replace('/\be\./', 'd.', $where) : '';
-$sql = "SELECT e.*, f.precision_fiche
-    FROM demande_essence e
-    JOIN (
-        SELECT d.code_bon, MIN(d.id) AS id
-        FROM demande_essence d
-        $whereSub
-        GROUP BY d.code_bon
-    ) u ON u.id = e.id
-    LEFT JOIN fiche f ON f.num_fiche = e.num_fiche
-    ORDER BY e.date_demande DESC";
+if ($show_all) {
+    // Pas de déduplication: afficher toutes les interventions correspondant aux filtres
+    $sql = "SELECT e.*, f.precision_fiche
+            FROM demande_essence e
+            LEFT JOIN fiche f ON f.num_fiche = e.num_fiche
+            $where
+            ORDER BY e.date_demande DESC";
+} else {
+    // Déduplication stricte par code_bon via sous-requête (on prend le MIN(id) par bon)
+    $whereSub = $where ? preg_replace('/\be\./', 'd.', $where) : '';
+    $sql = "SELECT e.*, f.precision_fiche
+            FROM demande_essence e
+            JOIN (
+                SELECT d.code_bon, MIN(d.id) AS id
+                FROM demande_essence d
+                $whereSub
+                GROUP BY d.code_bon
+            ) u ON u.id = e.id
+            LEFT JOIN fiche f ON f.num_fiche = e.num_fiche
+            ORDER BY e.date_demande DESC";
+}
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $demandes = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -164,8 +179,11 @@ function parseFieldsCombined(?string $motif, ?string $precision): array
     if (preg_match('/T[ée]l[ée]?phone\s*:\s*([^\r\n]+)/mi', $t, $m) || preg_match('/Tel\s*:\s*([^\r\n]+)/mi', $t, $m)) {
         $res['telephone'] = trim($m[1]);
     }
-    // Quantité: tolérer colon facultatif et unités m3/m³/mètres cubes
-    if (preg_match('/Quantit[ée][^\r\n:]*:?\s*([0-9]+(?:[\.,][0-9]+)?)\s*(?:m3|m³|m[èe]tres?\s*cubes?)?/mi', $t, $m)) {
+    // Quantité: tolérer accents/variantes (Quantité/Quantite) et (chargée/chargee/chargé/charge), colon facultatif, unités m3/m³/mètres cubes
+    if (
+        preg_match('/Quantit[eé]\s*charg[eé]e?[^\r\n:]*:?\s*([0-9]+(?:[\.,][0-9]+)?)\s*(?:m3|m³|m[èe]tres?\s*cubes?)?/mi', $t, $m)
+        || preg_match('/Quantit[eé][^\r\n:]*:?\s*([0-9]+(?:[\.,][0-9]+)?)\s*(?:m3|m³|m[èe]tres?\s*cubes?)?/mi', $t, $m)
+    ) {
         $res['quantite'] = (float) str_replace(',', '.', $m[1]);
     } elseif (preg_match('/([0-9]+(?:[\.,][0-9]+)?)\s*(?:m3|m³|m[èe]tres?\s*cubes?)\b/mi', $t, $m)) {
         $res['quantite'] = (float) str_replace(',', '.', $m[1]);
@@ -182,6 +200,28 @@ function parseFieldsCombined(?string $motif, ?string $precision): array
     return $res;
 }
 
+// Si demandé, filtrer pour ne garder que les demandes avec structure complète
+if ($structured_only) {
+    $filtered = [];
+    foreach ($demandes as $d) {
+        $t = trim(implode("\n", array_filter([(string)($d['motif'] ?? ''), (string)($d['precision_fiche'] ?? '')])));
+        if ($t === '') continue;
+        // Champs requis
+        $ok = true;
+        if (!preg_match('/\bNom\s*:\s*.+/mi', $t)) $ok = false;
+        // if (!preg_match('/\bMatricule\s*:\s*.+/mi', $t)) $ok = false;
+        // if (!preg_match('/\b(?:T[ée]l[ée]?phone|Tel)\s*:\s*.+/mi', $t)) $ok = false; // Téléphone: ou Tel:
+        // // Autoriser variantes: Quantité/Quantite + chargée/chargee/chargé/charge
+        // if (!preg_match('/\bQuantit[eé]\s*charg[eé]e?\s*:\s*[0-9]+(?:[\.,][0-9]+)?\b/mi', $t)) $ok = false;
+        // if (!preg_match('/\bFrais\s*de\s*route\s*:\s*[0-9\s\.,]+\b/mi', $t)) $ok = false;
+        // if (!preg_match('/\bSolde\s*:\s*[0-9\s\.,]+\b/mi', $t)) $ok = false;
+        // if (!preg_match('/\bCarburant\s*:\s*[0-9\s\.,]+\b/mi', $t)) $ok = false;
+        // GERANT est optionnel, ne pas bloquer
+        if ($ok) $filtered[] = $d;
+    }
+    $demandes = $filtered;
+}
+
 // Backward compat: quantity depuis motif/precision
 function parseQtyFromSources(?string $motif, ?string $precision): float
 {
@@ -190,8 +230,11 @@ function parseQtyFromSources(?string $motif, ?string $precision): float
     if ($precision) $parts[] = (string)$precision;
     if (empty($parts)) return 0.0;
     $t = implode("\n", $parts);
-    // Accepte "Quantité ... : 24", ou sans deux-points, et unités m3/m³/mètres cubes
-    if (preg_match('/Quantit[ée][^\r\n:]*:?\s*([0-9]+(?:[\.,][0-9]+)?)\s*(?:m3|m³|m[èe]tres?\s*cubes?)?/mi', $t, $m)) {
+    // Accepte "Quantité ... : 24" avec variantes d'accents/orthographes, ou sans deux-points, et unités m3/m³/mètres cubes
+    if (
+        preg_match('/Quantit[eé]\s*charg[eé]e?[^\r\n:]*:?\s*([0-9]+(?:[\.,][0-9]+)?)\s*(?:m3|m³|m[èe]tres?\s*cubes?)?/mi', $t, $m)
+        || preg_match('/Quantit[eé][^\r\n:]*:?\s*([0-9]+(?:[\.,][0-9]+)?)\s*(?:m3|m³|m[èe]tres?\s*cubes?)?/mi', $t, $m)
+    ) {
         return (float)str_replace(',', '.', $m[1]);
     }
     if (preg_match('/([0-9]+(?:[\.,][0-9]+)?)\s*(?:m3|m³|m[èe]tres?\s*cubes?)\b/mi', $t, $m)) {
@@ -333,6 +376,16 @@ $chartBenefMontants = array_values($topBenef);
             <input type="text" name="fournisseur" value="<?= htmlspecialchars($filtre_fournisseur) ?>" class="border rounded px-2 py-1 text-xs flex-1" placeholder="Fournisseur (filtre)">
             <input type="number" step="0.01" name="target_m3" value="<?= htmlspecialchars(number_format($target_m3, 2, '.', '')) ?>" class="border rounded px-2 py-1 text-xs w-28" placeholder="Obj. m³">
             <input type="number" step="1" name="target_trips" value="<?= htmlspecialchars((string)$target_trips) ?>" class="border rounded px-2 py-1 text-xs w-28" placeholder="Obj. voyages">
+            <label class="flex items-center gap-1 text-xs text-gray-700 border rounded px-2 py-1">
+                <input type="checkbox" name="scope" value="batch" <?= ($scope === 'batch') ? 'checked' : '' ?>>
+                Chantier uniquement
+            </label>
+            <label class="flex items-center gap-1 text-xs text-gray-700 border rounded px-2 py-1">
+                <input type="checkbox" name="show_all" value="1" <?= $show_all ? 'checked' : '' ?>>
+                Afficher toutes les interventions (pas de déduplication)
+            </label>
+            <!-- Option masquée: structured_only=1 par défaut; passer structured_only=0 pour désactiver -->
+            <input type="hidden" name="structured_only" value="<?= $structured_only ? '1' : '0' ?>">
             <button type="submit" class="bg-yellow-400 hover:bg-yellow-500 text-black px-4 py-1 rounded font-bold text-xs">Rechercher</button>
         </form>
         <div class="mb-4">

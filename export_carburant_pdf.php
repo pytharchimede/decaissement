@@ -193,10 +193,7 @@ $pdo = (new Database())->getConnection();
 $conditions = [];
 $params = [];
 
-// Filtre chantier
-$vehiculeFilter = "Dotation carburant (50 l/j) purge";
-$conditions[] = "e.vehicule LIKE :vehiculeFilter";
-$params[':vehiculeFilter'] = $vehiculeFilter . '%';
+// Pas de filtre véhicule: inclure tous les bons
 // Exclure les bons désactivés
 $conditions[] = "(e.desactive IS NULL OR e.desactive = 0)";
 

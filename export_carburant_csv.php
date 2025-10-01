@@ -15,10 +15,9 @@ $conditions = [];
 $params = [];
 $scope = $_GET['scope'] ?? '';
 
-// Filtre spécifique Dotation 50 l/j purge
-$vehiculeFilter = "Dotation carburant (50 l/j) purge";
-$conditions[] = "vehicule LIKE :vehiculeFilter";
-$params[':vehiculeFilter'] = $vehiculeFilter . '%';
+// Pas de filtre véhicule: inclure tous les bons
+// Exclure les bons désactivés
+$conditions[] = "(desactive IS NULL OR desactive = 0)";
 // Exclure les bons désactivés
 $conditions[] = "(desactive IS NULL OR desactive = 0)";
 
