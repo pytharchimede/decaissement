@@ -34,6 +34,7 @@ if (!$fiche) {
 
 // Vérifier si un reçu est déjà enregistré pour ce numéro de bon (toutes lignes confondues)
 $existingRecu = null;
+$uploadedDest = null; // suivra le chemin du fichier uploadé pour nettoyage si nécessaire
 try {
     $stmtChk = $pdo->prepare("SELECT num_recu, img_recu_station, date_demande FROM demande_essence WHERE code_bon = :cb AND img_recu_station IS NOT NULL AND TRIM(img_recu_station) <> '' ORDER BY id ASC LIMIT 1");
     $stmtChk->execute([':cb' => $code_bon]);
@@ -63,13 +64,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($error) && $num_recu !== '') {
         try {
             // Tente de vérifier sur les deux colonnes possibles (num_recu et num_recu_station)
-            $stmtDup = $pdo->prepare("SELECT code_bon FROM demande_essence WHERE (num_recu = :nr OR num_recu_station = :nr) LIMIT 1");
-            $stmtDup->execute([':nr' => $num_recu]);
+            // et exclure explicitement le bon courant pour éviter les faux négatifs avec LIMIT 1
+            $stmtDup = $pdo->prepare("SELECT code_bon FROM demande_essence WHERE (num_recu = :nr OR num_recu_station = :nr) AND code_bon <> :cb LIMIT 1");
+            $stmtDup->execute([':nr' => $num_recu, ':cb' => $code_bon]);
         } catch (Throwable $e) {
             // Si la colonne num_recu_station n'existe pas, se rabattre sur num_recu uniquement
             try {
-                $stmtDup = $pdo->prepare("SELECT code_bon FROM demande_essence WHERE num_recu = :nr LIMIT 1");
-                $stmtDup->execute([':nr' => $num_recu]);
+                $stmtDup = $pdo->prepare("SELECT code_bon FROM demande_essence WHERE num_recu = :nr AND code_bon <> :cb LIMIT 1");
+                $stmtDup->execute([':nr' => $num_recu, ':cb' => $code_bon]);
             } catch (Throwable $e2) {
                 $stmtDup = null; // ne pas bloquer si l'inspection échoue
             }
@@ -78,11 +80,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $dup = $stmtDup->fetch(PDO::FETCH_ASSOC);
             if ($dup && isset($dup['code_bon'])) {
                 $dupCode = (string)$dup['code_bon'];
-                // Si trouvé pour un autre bon que celui en cours, bloquer
-                if ($dupCode !== (string)$code_bon) {
-                    $error = "Ce numéro de reçu est déjà utilisé pour le bon " . htmlspecialchars($dupCode) . ".";
-                }
+                // Trouvé pour un autre bon que celui en cours: bloquer
+                $error = "Ce numéro de reçu est déjà utilisé pour le bon " . htmlspecialchars($dupCode) . ".";
             }
+        }
+    }
+
+    // Exiger la photo du reçu côté serveur si aucun reçu n'est déjà enregistré
+    if (!isset($error) && !$existingRecu) {
+        if (!isset($_FILES['img_recu']) || !is_array($_FILES['img_recu']) || $_FILES['img_recu']['error'] !== UPLOAD_ERR_OK) {
+            $error = "La photo du reçu est requise.";
         }
     }
 
@@ -95,38 +102,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tmp = $_FILES['img_recu']['tmp_name'];
         $orig = basename($_FILES['img_recu']['name']);
         $ext = strtolower(pathinfo($orig, PATHINFO_EXTENSION));
-        $allowed = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-        if (!in_array($ext, $allowed)) {
+        $allowedExt = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+
+        // Taille max 5 Mo
+        $maxSize = 5 * 1024 * 1024; // 5MB
+        if ($_FILES['img_recu']['size'] > $maxSize) {
+            $error = "L'image dépasse la taille maximale autorisée (5 Mo).";
+        }
+
+        // Vérification extension
+        if (!isset($error) && !in_array($ext, $allowedExt, true)) {
             $error = "Format d'image non supporté.";
-        } else {
-            $img_name_saved = 'recu_' . preg_replace('/[^A-Za-z0-9_-]/', '', $code_bon) . '_' . time() . '.' . $ext;
+        }
+
+        // Vérification MIME si possible
+        $allowedMime = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!isset($error) && function_exists('finfo_open')) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            if ($finfo) {
+                $mime = finfo_file($finfo, $tmp);
+                finfo_close($finfo);
+                if ($mime === false || !in_array($mime, $allowedMime, true)) {
+                    $error = "Le type de fichier n'est pas valide (JPEG/PNG/WEBP/GIF uniquement).";
+                }
+            }
+        }
+
+        if (!isset($error)) {
+            $safeBon = preg_replace('/[^A-Za-z0-9_-]/', '', (string)$code_bon);
+            $img_name_saved = 'recu_' . $safeBon . '_' . time() . '.' . $ext;
             $dest = $uploadDir . $img_name_saved;
-            if (!move_uploaded_file($tmp, $dest)) {
+            if (!@move_uploaded_file($tmp, $dest)) {
                 $error = "Échec de l'upload de l'image du reçu.";
+            } else {
+                $uploadedDest = $dest;
             }
         }
     }
 
     if (!isset($error)) {
         // Update BDD
-        $demandeObj->updateRecuByCodeBon($code_bon, $num_recu, $img_name_saved);
+        $ok = $demandeObj->updateRecuByCodeBon($code_bon, $num_recu, $img_name_saved);
+        if (!$ok) {
+            // rollback fichier si uploadé
+            if ($uploadedDest && is_file($uploadedDest)) {
+                @unlink($uploadedDest);
+            }
+            $error = "Une erreur est survenue lors de l'enregistrement du reçu. Veuillez réessayer.";
+        } else {
+            // Envoi WhatsApp confirmation à la station (ou au même numéro que l’initiant)
+            $sid = AppConfig::twilioSid();
+            $token = AppConfig::twilioToken();
+            $from = AppConfig::whatsappFrom();
+            $wh = new WhatsAppSMS($sid, $token, $from);
 
-        // Envoi WhatsApp confirmation à la station (ou au même numéro que l’initiant)
-        $sid = AppConfig::twilioSid();
-        $token = AppConfig::twilioToken();
-        $from = AppConfig::whatsappFrom();
-        $wh = new WhatsAppSMS($sid, $token, $from);
+            // Déterminer un numéro destinataire: par défaut le demandeur (station)
+            $to = "+2250544577666";
+            $benef = $fiche['beficiaire_fiche'];
+            $montant = (string)$fiche['montant_fiche'];
+            $date_str = (new DateTime($fiche['date_creat_fiche']))->format('d/m/Y');
+            $wh->sendConfirmServirCarburant($to, $code_bon, $benef, $num_recu, $montant, $date_str);
 
-        // Déterminer un numéro destinataire: par défaut le demandeur (station)
-        $to = "+2250544577666";
-        $benef = $fiche['beficiaire_fiche'];
-        $montant = (string)$fiche['montant_fiche'];
-        $date_str = (new DateTime($fiche['date_creat_fiche']))->format('d/m/Y');
-        $wh->sendConfirmServirCarburant($to, $code_bon, $benef, $num_recu, $montant, $date_str);
-
-        // Redirection simple
-        header('Location: bon_essence.php?id_bon=' . urlencode($code_bon));
-        exit;
+            // Redirection simple
+            header('Location: bon_essence.php?id_bon=' . urlencode($code_bon));
+            exit;
+        }
     }
 }
 
