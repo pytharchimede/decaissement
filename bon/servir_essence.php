@@ -4,6 +4,7 @@ require_once __DIR__ . '/../model/Fiche.php';
 require_once __DIR__ . '/../model/DemandeEssence.php';
 require_once __DIR__ . '/../model/WhatsAppSMS.php';
 require_once __DIR__ . '/../model/Config.php';
+require_once __DIR__ . '/../model/OcrReceiptAnalyzer.php';
 
 $pdo = (new Database())->getConnection();
 $ficheObj = new Fiche($pdo);
@@ -125,6 +126,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($mime === false || !in_array($mime, $allowedMime, true)) {
                     $error = "Le type de fichier n'est pas valide (JPEG/PNG/WEBP/GIF uniquement).";
                 }
+            }
+        }
+
+        // Vérification de conformité du document (modèle VINKO)
+        if (!isset($error)) {
+            $verify = OcrReceiptAnalyzer::verifyDocument('vinko_receipt', $tmp);
+            if (!($verify['ok'] ?? false)) {
+                $msg = 'Reçu non conforme au modèle VINKO.';
+                if (!empty($verify['errors'])) {
+                    $msg .= ' Détails: ' . implode('; ', (array)$verify['errors']);
+                }
+                $error = $msg;
             }
         }
 

@@ -58,9 +58,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         AppConfig::setWhatsappFrom(trim($_POST['whatsapp_from'] ?? ''));
         AppConfig::setGeranteWhatsapp(trim($_POST['gerante_whatsapp'] ?? ''));
         AppConfig::setGeranteSms(trim($_POST['gerante_sms'] ?? ''));
+        // OCR / IA
+        AppConfig::setOcrTesseractPath(trim($_POST['ocr_tesseract_path'] ?? ''));
+        AppConfig::setOcrLang(trim($_POST['ocr_lang'] ?? ''));
+        AppConfig::setOcrPsm(trim($_POST['ocr_psm'] ?? ''));
         $saved = true;
     } catch (Throwable $e) {
         $error = $e->getMessage();
+    }
+}
+
+// Test de la configuration OCR (tesseract --version)
+$test_output = null;
+$test_cmd = null;
+$test_err = null;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['test_ocr'])) {
+    try {
+        $path = trim($_POST['ocr_tesseract_path'] ?? AppConfig::ocrTesseractPath());
+        $lang = trim($_POST['ocr_lang'] ?? AppConfig::ocrLang());
+        $psm  = trim($_POST['ocr_psm'] ?? AppConfig::ocrPsm());
+        if ($path === '') {
+            throw new RuntimeException('Chemin Tesseract vide');
+        }
+        $test_cmd = '"' . $path . '" --version';
+        $out = shell_exec($test_cmd . ' 2>&1');
+        if ($out === null) {
+            $test_err = 'Execution null (droits/chemin).';
+        } else {
+            $test_output = $out;
+        }
+    } catch (Throwable $e) {
+        $test_err = $e->getMessage();
     }
 }
 
@@ -70,6 +98,10 @@ $vals = [
     'whatsapp_from' => AppConfig::whatsappFrom(),
     'gerante_whatsapp' => AppConfig::geranteWhatsapp(),
     'gerante_sms' => AppConfig::geranteSms(),
+    // OCR / IA
+    'ocr_tesseract_path' => AppConfig::ocrTesseractPath(),
+    'ocr_lang' => AppConfig::ocrLang(),
+    'ocr_psm' => AppConfig::ocrPsm(),
 ];
 ?>
 <!doctype html>
@@ -134,8 +166,68 @@ $vals = [
                     </div>
                 </div>
             </div>
+            <h3 class="mt-4">Paramètres OCR / IA</h3>
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Chemin Tesseract (tesseract.exe)</label>
+                            <input type="text" class="form-control" name="ocr_tesseract_path" value="<?= htmlspecialchars($vals['ocr_tesseract_path']) ?>" placeholder="C:\\Program Files\\Tesseract-OCR\\tesseract.exe" required>
+                            <div class="form-text">Assurez-vous que ce chemin existe et est exécutable par le service web.</div>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Langue(s)</label>
+                            <input type="text" class="form-control" name="ocr_lang" value="<?= htmlspecialchars($vals['ocr_lang']) ?>" placeholder="fra+eng">
+                            <div class="form-text">Langues installées dans Tesseract (ex: fra, eng, fra+eng).</div>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">PSM</label>
+                            <input type="number" min="1" max="13" class="form-control" name="ocr_psm" value="<?= htmlspecialchars($vals['ocr_psm']) ?>" placeholder="6">
+                            <div class="form-text">Page Segmentation Mode (par ex. 6).</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <div class="text-end">
                 <button class="btn btn-primary">Enregistrer</button>
+            </div>
+        </form>
+
+        <form method="post" class="mt-3">
+            <input type="hidden" name="test_ocr" value="1">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="m-0">Tester la configuration OCR</h5>
+                        <div>
+                            <button class="btn btn-outline-secondary btn-sm">Lancer le test (--version)</button>
+                        </div>
+                    </div>
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-8">
+                            <label class="form-label">Chemin Tesseract</label>
+                            <input type="text" class="form-control" name="ocr_tesseract_path" value="<?= htmlspecialchars($vals['ocr_tesseract_path']) ?>">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Langue(s)</label>
+                            <input type="text" class="form-control" name="ocr_lang" value="<?= htmlspecialchars($vals['ocr_lang']) ?>">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">PSM</label>
+                            <input type="number" min="1" max="13" class="form-control" name="ocr_psm" value="<?= htmlspecialchars($vals['ocr_psm']) ?>">
+                        </div>
+                    </div>
+                    <?php if ($test_output): ?>
+                        <div class="alert alert-success mt-3"><strong>OK</strong>
+                            <pre class="m-0" style="white-space:pre-wrap;"><?= htmlspecialchars($test_output) ?></pre>
+                        </div>
+                    <?php elseif ($test_err): ?>
+                        <div class="alert alert-danger mt-3"><strong>Erreur</strong>: <?= htmlspecialchars($test_err) ?></div>
+                    <?php endif; ?>
+                    <?php if ($test_cmd): ?>
+                        <div class="mt-2"><small class="text-muted">Commande exécutée: <code><?= htmlspecialchars($test_cmd) ?></code></small></div>
+                    <?php endif; ?>
+                </div>
             </div>
         </form>
     </div>

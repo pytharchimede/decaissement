@@ -29,6 +29,11 @@ class AppConfig
     private const K_WHATSAPP_FROM = 'twilio.whatsapp.from';
     private const K_GERANTE_WA = 'gerante.whatsapp';
     private const K_GERANTE_SMS = 'gerante.sms';
+    // OCR / IA keys
+    private const K_OCR_TESSERACT_PATH = 'ocr.tesseract.path';
+    private const K_OCR_LANG = 'ocr.lang';
+    private const K_OCR_PSM = 'ocr.psm';
+    private const K_OCR_ENGINE = 'ocr.engine'; // 'tesseract' | 'paddle'
 
     public static function twilioSid(): string
     {
@@ -49,6 +54,46 @@ class AppConfig
     public static function geranteSms(): string
     {
         return self::repo()->get(self::K_GERANTE_SMS) ?? self::DEF_GERANTE_SMS;
+    }
+
+    // OCR / IA configuration
+    public static function ocrTesseractPath(): string
+    {
+        $default = stripos(PHP_OS_FAMILY, 'Windows') !== false
+            ? 'C:\\Program Files\\Tesseract-OCR\\tesseract.exe'
+            : 'tesseract';
+        return self::repo()->get(self::K_OCR_TESSERACT_PATH) ?? $default;
+    }
+    public static function ocrLang(): string
+    {
+        return self::repo()->get(self::K_OCR_LANG) ?? 'fra+eng';
+    }
+    public static function ocrPsm(): string
+    {
+        return self::repo()->get(self::K_OCR_PSM) ?? '6';
+    }
+    public static function ocrEngine(): string
+    {
+        $v = self::repo()->get(self::K_OCR_ENGINE) ?? 'tesseract';
+        $v = in_array($v, ['tesseract', 'paddle'], true) ? $v : 'tesseract';
+        return $v;
+    }
+
+    public static function setOcrTesseractPath(?string $v): bool
+    {
+        return self::repo()->set(self::K_OCR_TESSERACT_PATH, $v);
+    }
+    public static function setOcrLang(?string $v): bool
+    {
+        return self::repo()->set(self::K_OCR_LANG, $v);
+    }
+    public static function setOcrPsm(?string $v): bool
+    {
+        return self::repo()->set(self::K_OCR_PSM, $v);
+    }
+    public static function setOcrEngine(?string $v): bool
+    {
+        return self::repo()->set(self::K_OCR_ENGINE, $v);
     }
 
     // Setters (utilisés par l'admin UI)
