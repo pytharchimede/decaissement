@@ -100,19 +100,61 @@ function detect_extended_columns($sheet): array
 }
 function parse_money_to_float($val): float
 {
-    $v = strtoupper(trim((string)$val));
-    if ($v === '' || $v === '-' || $v === '0' || $v === '- CFA') return 0.0;
-    $v = str_replace(['CFA', 'F CFA', 'FCFA', 'F'], '', $v);
-    $v = preg_replace('~[^0-9,.-]+~', '', $v);
-    if (substr_count($v, ',') > 1) {
-        $parts = explode(',', $v);
-        $dec = array_pop($parts);
-        $v = preg_replace('~,~', '', implode('', $parts)) . ',' . $dec;
+    $raw = (string)$val;
+    if ($raw === '' || trim($raw) === '-') return 0.0;
+    // Normalisation espaces (classiques, insécables, fines), tab, retour ligne -> espace simple
+    $raw = preg_replace('~[\x{00A0}\x{202F}\s]+~u', ' ', $raw);
+    $rawUp = strtoupper($raw);
+    // Retirer mentions monétaires pour limiter le bruit (laisser les nombres intacts)
+    $rawUp = str_replace(['CFA', 'FCFA', 'F CFA', ' FRCS', 'FRCS', 'FR C S', 'FRCFA', ' F '], ' ', $rawUp);
+    // Capturer tous les candidats : patterns avec séparateurs milliers, puis décimaux, puis entiers
+    if (!preg_match_all('/\d{1,3}(?:[ \.\x{00A0}\x{202F}]\d{3})+(?:[,.]\d+)?|\d+[.,]\d+|\d+/u', $rawUp, $matches)) {
+        return 0.0;
     }
-    $v = str_replace(',', '.', $v);
-    $v = str_replace(' ', '', $v);
-    if ($v === '' || $v === '-' || $v === '.') return 0.0;
-    return (float)$v;
+    $best = 0.0;
+    foreach ($matches[0] as $cand) {
+        $c = trim($cand);
+        if ($c === '' || $c === '-') continue;
+        $isThousandsPattern = (bool)preg_match('/^\d{1,3}(?:[ \.\x{00A0}\x{202F}]\d{3})+(?:[,.]\d+)?$/u', $c);
+        // Séparateurs milliers -> enlever (espace, point, NBSP) quand pattern milliers détecté
+        if ($isThousandsPattern) {
+            // Garder éventuelle partie décimale séparée par virgule/point
+            if (strpos($c, ',') !== false && substr_count($c, ',') === 1) {
+                [$ent, $dec] = explode(',', $c, 2);
+                $ent = preg_replace('~[ \.\x{00A0}\x{202F}]~u', '', $ent);
+                $c = $ent . '.' . preg_replace('~[^0-9]~', '', $dec);
+            } elseif (strpos($c, '.') !== false && substr_count($c, '.') === 1 && !preg_match('~\.\d{3}$~', $c)) {
+                // Probable décimale (rare ici) => supprimer séparateurs milliers (espaces) seulement
+                $parts = explode('.', $c, 2);
+                $ent = preg_replace('~[ \x{00A0}\x{202F}]~u', '', $parts[0]);
+                $c = $ent . '.' . preg_replace('~[^0-9]~', '', $parts[1]);
+            } else {
+                // Pas de décimale : enlever tous séparateurs de milliers
+                $c = preg_replace('~[ \.\x{00A0}\x{202F}]~u', '', $c);
+            }
+        } else {
+            // Cas non milliers : traiter virgule comme décimale ; si plusieurs séparateurs, prendre la dernière comme décimale
+            if (strpos($c, ',') !== false) {
+                if (substr_count($c, ',') > 1) {
+                    $parts = explode(',', $c);
+                    $dec = array_pop($parts);
+                    $c = preg_replace('~,~', '', implode('', $parts)) . '.' . $dec;
+                } else {
+                    $c = str_replace(',', '.', $c);
+                }
+            }
+            // Si on a un unique point et 3 chiffres après et longueur totale petite -> point = millier (ex: 33.750)
+            if (preg_match('~^\d{1,3}\.\d{3}$~', $c)) {
+                $c = str_replace('.', '', $c); // 33.750 -> 33750
+            }
+        }
+        // Nettoyage final conservateur
+        $c = preg_replace('~[^0-9\.]~', '', $c);
+        if ($c === '' || $c === '.') continue;
+        $valNum = (float)$c;
+        if ($valNum > $best) $best = $valNum;
+    }
+    return $best;
 }
 function parse_int_like($val, $default = 0): int
 {
@@ -124,9 +166,13 @@ function parse_int_like($val, $default = 0): int
 function parse_float_like($val, $default = 0.0): float
 {
     if ($val === null) return $default;
-    $v = str_replace([' ', "\xC2\xA0"], '', str_replace(',', '.', trim((string)$val)));
-    if (!is_numeric($v)) return $default;
-    return (float)$v;
+    $s = trim((string)$val);
+    if ($s === '' || $s === '-') return $default;
+    $s = str_replace("\xC2\xA0", ' ', $s);
+    $s = str_replace(' ', '', $s);
+    $s = str_replace(',', '.', $s);
+    if (!preg_match('~^-?\d+(?:\.\d+)?$~', $s)) return $default;
+    return (float)$s;
 }
 // Fallback ligne pour trouver chauffeur si mapping['chauffeur'] vide
 function find_chauffeur_cell($sheet, int $row, ?string $camionCol, ?string $bonCol): array
