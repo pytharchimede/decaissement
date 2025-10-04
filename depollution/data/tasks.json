@@ -1,0 +1,34 @@
+[
+    {
+        "id": 1,
+        "title": "Évaluation du site",
+        "description": "Évaluer l'état du site avant le début des travaux de dépollution.",
+        "status": "en cours",
+        "assigned_to": "operateur1",
+        "due_date": "2023-11-15"
+    },
+    {
+        "id": 2,
+        "title": "Nettoyage initial",
+        "description": "Effectuer un nettoyage initial du site pour préparer les travaux.",
+        "status": "à faire",
+        "assigned_to": "operateur1",
+        "due_date": "2023-11-20"
+    },
+    {
+        "id": 3,
+        "title": "Analyse des échantillons",
+        "description": "Analyser les échantillons de sol pour détecter les contaminants.",
+        "status": "à faire",
+        "assigned_to": "operateur2",
+        "due_date": "2023-11-25"
+    },
+    {
+        "id": 4,
+        "title": "Rapport final",
+        "description": "Rédiger le rapport final sur les travaux de dépollution effectués.",
+        "status": "à faire",
+        "assigned_to": "admin",
+        "due_date": "2023-12-01"
+    }
+]

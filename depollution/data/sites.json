@@ -1,0 +1,26 @@
+[
+    {
+        "id": 1,
+        "name": "Site A",
+        "location": "Location A",
+        "status": "active"
+    },
+    {
+        "id": 2,
+        "name": "Site B",
+        "location": "Location B",
+        "status": "inactive"
+    },
+    {
+        "id": 3,
+        "name": "Site C",
+        "location": "Location C",
+        "status": "active"
+    },
+    {
+        "id": 4,
+        "name": "Site D",
+        "location": "Location D",
+        "status": "under maintenance"
+    }
+]

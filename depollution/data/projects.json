@@ -1,0 +1,42 @@
+[
+    {
+        "id": 1,
+        "name": "Projet de dépollution A",
+        "description": "Dépollution du site A",
+        "startDate": "2023-01-15",
+        "endDate": "2023-06-30",
+        "status": "En cours",
+        "tasks": [
+            {
+                "id": 1,
+                "name": "Évaluation du site",
+                "status": "Complété"
+            },
+            {
+                "id": 2,
+                "name": "Nettoyage initial",
+                "status": "En cours"
+            }
+        ]
+    },
+    {
+        "id": 2,
+        "name": "Projet de dépollution B",
+        "description": "Dépollution du site B",
+        "startDate": "2023-03-01",
+        "endDate": "2023-09-15",
+        "status": "Prévu",
+        "tasks": [
+            {
+                "id": 1,
+                "name": "Analyse des sols",
+                "status": "Prévu"
+            },
+            {
+                "id": 2,
+                "name": "Intervention de nettoyage",
+                "status": "Prévu"
+            }
+        ]
+    }
+]
