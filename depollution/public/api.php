@@ -711,16 +711,259 @@ if ($action === 'updateVoyageOp2') {
     $carbL = (float)$payload['carburant_litre'];
     $carbM = (float)$payload['carburant_montant'];
     try {
-        $st = $pdo->prepare('SELECT montant_origine FROM depollution_voyage WHERE id=?');
+        // Récupérer détails nécessaires + flag potentiellement existant generation_fiches
+        $st = $pdo->prepare('SELECT v.montant_origine, v.generation_fiches, v.prestataire_id, v.chauffeur_id, v.camion_id, c.matricule, ch.nom chauffeur_nom, ch.telephone chauffeur_tel
+                             FROM depollution_voyage v
+                             JOIN depollution_camion c ON v.camion_id=c.id
+                             JOIN depollution_chauffeur ch ON v.chauffeur_id=ch.id
+                             WHERE v.id=?');
         $st->execute([$voyageId]);
         $row = $st->fetch(PDO::FETCH_ASSOC);
         if (!$row) json_out(['ok' => false, 'error' => 'Voyage introuvable'], 404);
+        if (!empty($row['generation_fiches'])) {
+            json_out(['ok' => false, 'error' => 'Fiches déjà générées pour ce voyage'], 409);
+        }
         $montantOrigine = (float)$row['montant_origine'];
         $reel = $montantOrigine - $frais - $carbM;
-        $st = $pdo->prepare('UPDATE depollution_voyage SET frais_route=?, carburant_litre=?, carburant_montant=?, reel_recu=?, statut="CLOS" WHERE id=?');
-        $st->execute([$frais, $carbL, $carbM, $reel, $voyageId]);
-        json_out(['ok' => true, 'reel_recu' => $reel]);
+        if ($reel < 0) $reel = 0;
+        // Clôture du voyage
+        $pdo->prepare('UPDATE depollution_voyage SET frais_route=?, carburant_litre=?, carburant_montant=?, reel_recu=?, statut="CLOS" WHERE id=?')
+            ->execute([$frais, $carbL, $carbM, $reel, $voyageId]);
+
+        require_once __DIR__ . '/../../model/Fiche.php';
+        require_once __DIR__ . '/../../model/EmailManager.php';
+        require_once __DIR__ . '/../../model/WhatsAppSMS.php';
+        $ficheObj = new Fiche($pdo);
+        $emailMgr = new EmailManager();
+
+        // Valeurs communes
+        $chauffeurNom = $row['chauffeur_nom'];
+        $chauffeurTel = $row['chauffeur_tel'];
+        $matricule = $row['matricule'];
+        $affectationId = 1; // chantier
+        $chantierId = 60;   // chantier dépollution
+        $entreprise = 'BANAMUR';
+        $modePaiementCash = 'Cash';
+        $designationCarburant = 'Dotation carburant (50 l/j) purge';
+
+        // Service insertion générique
+        $insertFiche = function (array $opts) use ($ficheObj) {
+            $data = [
+                'beficiaire_fiche' => $opts['beneficiaire'],
+                'montant_fiche' => $opts['montant'],
+                'tel_beneficiaire_fiche' => $opts['telephone'],
+                'num_fiche' => $ficheObj->generateNumFiche(),
+                'affectation_id' => $opts['affectation_id'],
+                'num_piece' => $opts['num_piece'],
+                'chantier_id' => $opts['chantier_id'],
+                'precision_fiche' => $opts['precision_fiche'],
+                'serv_bureau_banamur_id' => '',
+                'code_autorisation_feb' => $opts['code_autorisation_feb'],
+                'entreprise' => $opts['entreprise'],
+                'designation_fiche' => $opts['designation_fiche'],
+                'photo_beneficiaire' => '',
+                'cni_beneficiaire' => ''
+            ];
+            $ficheObj->insertFiche($data);
+            return $data['num_fiche'];
+        };
+
+        // Chargement config centralisée (Twilio / emails / logging)
+        $configDepo = $configDepo ?? (function () {
+            $file = __DIR__ . '/../../config/depollution_config.php';
+            if (is_file($file)) {
+                return require $file;
+            }
+            return [];
+        })();
+
+        // Démarrage transaction pour atomicité (clôture voyage + fiches + traces + logs)
+        $txnStarted = false;
+        if (!$pdo->inTransaction()) {
+            $pdo->beginTransaction();
+            $txnStarted = true;
+        }
+
+        $fichesCreees = [];
+        $index = $voyageId;
+        // Fiche carburant ?
+        if ($carbM > 0) {
+            $numCarb = $insertFiche([
+                'beneficiaire' => $chauffeurNom,
+                'telephone' => $chauffeurTel,
+                'montant' => $carbM,
+                'affectation_id' => $affectationId,
+                'num_piece' => $modePaiementCash,
+                'chantier_id' => $chantierId,
+                'precision_fiche' => 'Carburant pour la benne immatriculée ' . $matricule,
+                'designation_fiche' => $designationCarburant,
+                'code_autorisation_feb' => 'depo_bypass_' . $index . '_carb',
+                'entreprise' => $entreprise
+            ]);
+            $fichesCreees[] = ['type' => 'carburant', 'num_fiche' => $numCarb, 'montant' => $carbM];
+        }
+        // Fiche reliquat
+        $numRel = $insertFiche([
+            'beneficiaire' => $chauffeurNom,
+            'telephone' => $chauffeurTel,
+            'montant' => $reel,
+            'affectation_id' => $affectationId,
+            'num_piece' => $modePaiementCash,
+            'chantier_id' => $chantierId,
+            'precision_fiche' => 'Reliquat pour la benne immatriculée ' . $matricule,
+            'designation_fiche' => 'Reliquat benne ' . $matricule,
+            'code_autorisation_feb' => 'depo_bypass_' . $index . '_reliq',
+            'entreprise' => $entreprise
+        ]);
+        $fichesCreees[] = ['type' => 'reliquat', 'num_fiche' => $numRel, 'montant' => $reel];
+
+        // Flag anti doublon & trace
+        // Ajout colonne generation_fiches si absente (MySQL 8+ supporte IF NOT EXISTS). Fallback pour versions plus anciennes.
+        try {
+            $pdo->exec("ALTER TABLE depollution_voyage ADD COLUMN IF NOT EXISTS generation_fiches TINYINT DEFAULT 0");
+        } catch (Throwable $eAlter) {
+            try {
+                $col = $pdo->query("SHOW COLUMNS FROM depollution_voyage LIKE 'generation_fiches'")->fetch();
+                if (!$col) {
+                    $pdo->exec("ALTER TABLE depollution_voyage ADD COLUMN generation_fiches TINYINT DEFAULT 0");
+                }
+            } catch (Throwable $eAlter2) { /* ignore */
+            }
+        }
+        $pdo->prepare('UPDATE depollution_voyage SET generation_fiches=1 WHERE id=?')->execute([$voyageId]);
+        try {
+            $pdo->exec('CREATE TABLE IF NOT EXISTS depollution_fiche_trace (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                voyage_id INT NOT NULL,
+                type_fiche VARCHAR(30) NOT NULL,
+                num_fiche VARCHAR(50) NOT NULL,
+                montant DOUBLE NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        } catch (Throwable $eTbl) { /* ignore */
+        }
+        $insTrace = $pdo->prepare('INSERT INTO depollution_fiche_trace (voyage_id, type_fiche, num_fiche, montant) VALUES (?,?,?,?)');
+        foreach ($fichesCreees as $fc) {
+            $insTrace->execute([$voyageId, $fc['type'], $fc['num_fiche'], $fc['montant']]);
+        }
+
+        // Préparation table de log notifications si activée
+        $enableDbLog = (bool)($configDepo['log']['enable_db_log'] ?? false);
+        $logStmt = null;
+        if ($enableDbLog) {
+            try {
+                $pdo->exec("CREATE TABLE IF NOT EXISTS depollution_notification_log (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    voyage_id INT NULL,
+                    num_fiche VARCHAR(50) NULL,
+                    type_fiche VARCHAR(30) NULL,
+                    channel VARCHAR(20) NOT NULL,
+                    status VARCHAR(20) NOT NULL,
+                    message TEXT NULL,
+                    payload JSON NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            } catch (Throwable $eLogTbl) { /* ignore creation failure */
+            }
+            try {
+                $logStmt = $pdo->prepare('INSERT INTO depollution_notification_log (voyage_id, num_fiche, type_fiche, channel, status, message, payload) VALUES (?,?,?,?,?,?,?)');
+            } catch (Throwable $ePrepLog) {
+                $enableDbLog = false;
+            }
+        }
+        $logNotif = function ($voyId, $fiche, $type, $channel, $status, $message, $payload) use ($enableDbLog, $logStmt) {
+            if (!$enableDbLog || !$logStmt) return;
+            try {
+                $logStmt->execute([$voyId, $fiche, $type, $channel, $status, mb_substr($message, 0, 1000), json_encode($payload, JSON_UNESCAPED_UNICODE)]);
+            } catch (Throwable $e) { /* ignore */
+            }
+        };
+
+        // Notifications email
+        $notifErrors = [];
+        try {
+            $subject = 'DEPOLLUTION - Fiches générées voyage #' . $voyageId;
+            $body = '<p>Voyage clôturé - Benne ' . htmlspecialchars($matricule) . '</p><ul>';
+            foreach ($fichesCreees as $fc) {
+                $body .= '<li>' . htmlspecialchars($fc['type']) . ' : ' . htmlspecialchars($fc['num_fiche']) . ' (' . number_format($fc['montant'], 0, ',', ' ') . ' CFA)</li>';
+            }
+            $body .= '</ul>';
+            $recipients = $configDepo['emails']['recipients'] ?? [];
+            $emailMgr->sendEmail($subject, $body, $recipients);
+            $logNotif($voyageId, null, null, 'email', 'success', 'Envoi email OK', ['subject' => $subject, 'to' => $recipients]);
+        } catch (Throwable $eMail) {
+            $notifErrors[] = 'email:' . $eMail->getMessage();
+            $logNotif($voyageId, null, null, 'email', 'error', $eMail->getMessage(), []);
+        }
+
+        // Notifications WhatsApp selon logique métier (carburant / réparation)
+        try {
+            $sid = $configDepo['twilio']['sid'] ?? '';
+            $token = $configDepo['twilio']['token'] ?? '';
+            $from = $configDepo['twilio']['from'] ?? '';
+            $wa = new WhatsAppSMS($sid, $token, $from);
+            $waDG = $configDepo['dg_whatsapp'] ?? '';
+            foreach ($fichesCreees as $fc) {
+                $precision = ($fc['type'] === 'carburant') ? ('Carburant pour la benne immatriculée ' . $matricule) : ('Reliquat pour la benne immatriculée ' . $matricule);
+                $designation = ($fc['type'] === 'carburant') ? $designationCarburant : ('Reliquat benne ' . $matricule);
+                $texte_precision = $precision;
+                $texte_designation = $designation;
+                // Carburant ?
+                if (stripos($texte_precision, 'carburant') !== false || stripos($texte_designation, 'carburant') !== false) {
+                    $resp = $wa->sendCarburantManageCallToAction(
+                        $waDG,
+                        $fc['num_fiche'],
+                        $fc['montant'],
+                        $chauffeurNom,
+                        $texte_precision ?: $texte_designation
+                    );
+                    if (!is_array($resp) || $resp['status'] !== 'success') {
+                        $notifErrors[] = 'wa_carb:' . (is_array($resp) ? $resp['message'] : 'fail');
+                        $logNotif($voyageId, $fc['num_fiche'], $fc['type'], 'whatsapp', 'error', (is_array($resp) ? ($resp['message'] ?? 'fail') : 'fail'), $resp ?? []);
+                    } else {
+                        $logNotif($voyageId, $fc['num_fiche'], $fc['type'], 'whatsapp', 'success', 'WA carburant envoyée', $resp);
+                    }
+                }
+                // Réparation urgence ? (utilise heuristique contientMotReparation reconstituée locale)
+                $checker = function ($txt) {
+                    $t = mb_strtolower($txt, 'UTF-8');
+                    $t = str_replace(['é', 'è', 'ê', 'ë', 'à', 'â', 'ä', 'î', 'ï', 'ô', 'ö', 'ù', 'û', 'ü', 'ç'], ['e', 'e', 'e', 'e', 'a', 'a', 'a', 'i', 'i', 'o', 'o', 'u', 'u', 'u', 'c'], $t);
+                    return (strpos($t, 'reparation') !== false || strpos($t, 'reparations') !== false);
+                };
+                if ($checker($texte_precision) || $checker($texte_designation)) {
+                    $resp2 = $wa->sendUrgentReparationCallToAction(
+                        $waDG,
+                        $fc['num_fiche'],
+                        $fc['montant'],
+                        $chauffeurNom,
+                        $texte_precision ?: $texte_designation
+                    );
+                    if (!is_array($resp2) || $resp2['status'] !== 'success') {
+                        $notifErrors[] = 'wa_rep:' . (is_array($resp2) ? $resp2['message'] : 'fail');
+                        $logNotif($voyageId, $fc['num_fiche'], $fc['type'], 'whatsapp', 'error', (is_array($resp2) ? ($resp2['message'] ?? 'fail') : 'fail'), $resp2 ?? []);
+                    } else {
+                        $logNotif($voyageId, $fc['num_fiche'], $fc['type'], 'whatsapp', 'success', 'WA réparation envoyée', $resp2);
+                    }
+                }
+            }
+        } catch (Throwable $eWa) {
+            $notifErrors[] = 'whatsapp:' . $eWa->getMessage();
+            $logNotif($voyageId, null, null, 'whatsapp', 'error', $eWa->getMessage(), []);
+        }
+        if ($txnStarted && $pdo->inTransaction()) {
+            try {
+                $pdo->commit();
+            } catch (Throwable $eC) { /* ignore */
+            }
+        }
+        json_out(['ok' => true, 'reel_recu' => $reel, 'fiches' => $fichesCreees, 'notif_errors' => $notifErrors]);
     } catch (Throwable $e) {
+        if (isset($txnStarted) && $txnStarted && $pdo->inTransaction()) {
+            try {
+                $pdo->rollBack();
+            } catch (Throwable $eRb) { /* ignore */
+            }
+        }
         json_out(['ok' => false, 'error' => $e->getMessage()], 400);
     }
 }
