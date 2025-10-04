@@ -39,6 +39,9 @@ function goto(i) {
   );
   renderSteps();
   if (current === 3) buildRecap();
+  // Focus auto premier input du fieldset actif
+  const first = fieldsets[current].querySelector("input,select,textarea");
+  if (first) setTimeout(() => first.focus(), 50);
 }
 
 form.addEventListener("click", (e) => {
@@ -128,6 +131,12 @@ form.addEventListener("submit", (e) => {
       goto(0);
       prestSel.dispatchEvent(new Event("change"));
       loadRecent();
+      // Fermeture modal si présente
+      const modal = document.getElementById("voyageModal");
+      if (modal && modal.classList.contains("open")) {
+        modal.classList.remove("open");
+        document.body.classList.remove("overflow-hidden");
+      }
     })
     .catch(() => toast("Erreur réseau", false));
 });

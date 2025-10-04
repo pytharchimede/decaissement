@@ -6,8 +6,24 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Admin Dépollution</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <link rel="stylesheet" href="shared-ui.css" />
     <link rel="stylesheet" href="assets/css/app.css" />
     <style>
+        body {
+            background: linear-gradient(135deg, #f0f4ff 0%, #ffffff 100%);
+            font-family: system-ui, 'Segoe UI', sans-serif;
+            transition: background .4s, color .4s;
+        }
+
+        .dark body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        }
+
+        .app-nav {
+            backdrop-filter: blur(6px);
+        }
+
         .tiles {
             display: grid;
             gap: 1rem;
@@ -119,15 +135,70 @@
         .badge-err {
             color: #dc2626
         }
+
+        /* Dark mode overrides */
+        .dark .tile {
+            background: #1e293b;
+            color: #e2e8f0;
+        }
+
+        .dark .prest-card {
+            background: #1e293b;
+            border-color: #475569;
+            color: #e2e8f0;
+        }
+
+        .dark .drop-zone {
+            background: #243047;
+            border-color: #64748b;
+            color: #e2e8f0;
+        }
+
+        .dark .progress-import {
+            background: #0f172a;
+            color: #e2e8f0;
+        }
+
+        .dark .btn-outline {
+            background: #1e293b;
+            color: #facc15;
+            border-color: #facc15;
+        }
+
+        .dark .btn-yellow {
+            box-shadow: 0 0 0 1px #eab308 inset;
+        }
+
+        .dark .toast {
+            background: #facc15;
+            color: #111;
+        }
     </style>
 </head>
 
-<body class="layout">
-    <header class="topbar">
-        <h1>Administration Dépollution</h1>
-        <nav><a href="operateur1.php">Opérateur 1</a><a href="operateur2.php">Opérateur 2</a></nav>
+<body class="min-h-screen">
+    <header class="app-nav fixed top-0 inset-x-0 z-40 bg-white/80 border-b border-yellow-300 flex items-center h-14 px-3">
+        <button id="hambBtn" class="p-2 rounded hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-yellow-400" aria-label="Menu">
+            <span class="block w-5 h-0.5 bg-yellow-700 mb-1"></span>
+            <span class="block w-5 h-0.5 bg-yellow-700 mb-1"></span>
+            <span class="block w-5 h-0.5 bg-yellow-700"></span>
+        </button>
+        <h1 class="ml-3 text-sm font-extrabold tracking-wide text-yellow-700">Administration</h1>
+        <div class="ml-auto flex items-center gap-2">
+            <a href="operateur1.php" class="btn-outline">Opér. 1</a>
+            <a href="operateur2.php" class="btn-outline">Opér. 2</a>
+            <a href="recap_carburant.php" class="btn-outline">Récap</a>
+            <button id="toggleThemeAdmin" class="btn-outline" title="Mode sombre">🌙</button>
+        </div>
     </header>
-    <main class="main">
+    <nav id="sideMenu" class="fixed top-14 left-0 bottom-0 w-60 bg-white border-r border-yellow-300 p-4 transform -translate-x-full transition-transform duration-300 flex flex-col gap-4 z-30">
+        <div class="text-xs font-semibold tracking-wider text-yellow-700">Navigation</div>
+        <a class="btn-outline text-left" href="operateur1.php">Opérateur 1</a>
+        <a class="btn-outline text-left" href="operateur2.php">Opérateur 2</a>
+        <a class="btn-outline text-left" href="recap_carburant.php">Récap carburant</a>
+        <a class="btn-yellow text-left" href="admin.php">Administration</a>
+    </nav>
+    <main class="pt-16 px-3 pb-10 max-w-7xl mx-auto w-full">
         <section class="panel" style="flex:2">
             <h2 style="margin-top:0;display:flex;align-items:center;gap:.5rem"><span>Prestataires</span></h2>
             <form id="formAddPrest" class="flex" style="flex-wrap:wrap;gap:.5rem">
@@ -171,6 +242,27 @@
     <div id="toast" class="toast" hidden></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/js/all.min.js" crossorigin="anonymous"></script>
     <script src="assets/js/admin_dash.js"></script>
+    <script>
+        // Menu hamburger & side
+        const hambBtn = document.getElementById('hambBtn');
+        const sideMenu = document.getElementById('sideMenu');
+        hambBtn.addEventListener('click', () => sideMenu.classList.toggle('-translate-x-full'));
+        // Theme toggle
+        const themeBtnAdmin = document.getElementById('toggleThemeAdmin');
+
+        function applyThemeAdmin() {
+            const mode = localStorage.getItem('theme') || 'light';
+            document.documentElement.classList.toggle('dark', mode === 'dark');
+            themeBtnAdmin.textContent = mode === 'dark' ? '☀️' : '🌙';
+            themeBtnAdmin.title = mode === 'dark' ? 'Mode clair' : 'Mode sombre';
+        }
+        themeBtnAdmin.addEventListener('click', () => {
+            const cur = localStorage.getItem('theme') === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('theme', cur);
+            applyThemeAdmin();
+        });
+        applyThemeAdmin();
+    </script>
 </body>
 
 </html>
