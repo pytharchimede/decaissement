@@ -435,6 +435,8 @@ $targetVolumeFmt = number_format($target_volume, 1, ',', ' ');
                 $barColor = 'bg-gradient-to-r from-red-500 to-red-600';
                 if ($pctConsommation >= 80) $barColor = 'bg-gradient-to-r from-yellow-400 to-yellow-600';
                 if ($pctConsommation > 100) $barColor = 'bg-gradient-to-r from-green-400 to-green-600';
+                // Objectif initial (base) sur hypothèse fixe 50 L par voyage prévu
+                $objectifInitialBase = ($target_voyages > 0) ? (50 * $target_voyages) : 0;
                 ?>
                 <div class="bg-white p-3 rounded card" title="Objectif litres = valeur fournie ou (litres réalisés / voyages réalisés) * objectif voyages">
                     <div class="text-[10px] text-gray-500 mb-1" title="Consommation réelle vs objectif prévisionnel en litres">Consommation Carburant (<?= number_format($totalLitres, 0, ',', ' ') ?> L / <?= number_format($litresObjectif, 0, ',', ' ') ?> L)</div>
@@ -442,6 +444,7 @@ $targetVolumeFmt = number_format($target_volume, 1, ',', ' ');
                         <div style="width:<?= $pctConsommation ?>%" class="h-3 rounded <?= $barColor ?>"></div>
                     </div>
                     <div class="text-right text-[10px] mt-1 font-semibold text-yellow-700" title="Progression actuelle"><?= $pctConsommation ?>%</div>
+                    <div class="mt-1 text-[9px] text-gray-500" title="Objectif initial théorique basé sur 50 L/Voyage prévu">Obj. Cons. Initial (50L/voy) : <?= number_format($objectifInitialBase, 0, ',', ' ') ?> L</div>
                 </div>
                 <div class="bg-white p-3 rounded card text-[10px] leading-4">
                     <div class="font-semibold mb-1">Objectifs / Moyennes</div>
