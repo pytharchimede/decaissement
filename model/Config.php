@@ -96,6 +96,22 @@ class AppConfig
         return self::repo()->set(self::K_OCR_ENGINE, $v);
     }
 
+    // OpenAI / GPT configuration via variables d'environnement
+    public static function openAiApiKey(): string
+    {
+        return getenv('OPENAI_API_KEY') ?: '';
+    }
+    public static function openAiModel(): string
+    {
+        // Choix par défaut raisonnable; ajustable via OPENAI_MODEL
+        return getenv('OPENAI_MODEL') ?: 'gpt-4o-mini';
+    }
+    public static function openAiBaseUrl(): string
+    {
+        $u = getenv('OPENAI_BASE_URL') ?: 'https://api.openai.com/v1';
+        return rtrim($u, '/');
+    }
+
     // Setters (utilisés par l'admin UI)
     public static function setTwilioSid(?string $v): bool
     {

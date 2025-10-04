@@ -7,4 +7,5 @@
     <a class="btn" href="builder.php">Builder</a>
     <a class="btn" href="test.php">Tester</a>
     <a class="btn" href="detect.php">Détecter</a>
+    <a class="btn" href="learn.php">Apprendre</a>
 </nav>
