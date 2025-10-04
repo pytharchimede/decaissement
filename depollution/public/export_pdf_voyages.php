@@ -103,6 +103,19 @@ foreach ($rows as $r) {
         . '<td style="text-align:right">' . number_format($r['reel_recu'], 0, ',', ' ') . '</td>'
         . '</tr>';
 }
+// Ajout d'un récap de la consommation vs objectif si paramètres fournis
+$totLitres = array_sum(array_map(fn($r) => (float)$r['carburant_litre'], $rows));
+$totCarbMontant = array_sum(array_map(fn($r) => (float)$r['carburant_montant'], $rows));
+$totVoy = count($rows);
+$targetVoy = !empty($in['target_voyages']) ? (int)$in['target_voyages'] : 0;
+$targetCarb = !empty($in['target_carb']) ? (int)$in['target_carb'] : 0;
+if (!$targetCarb && $totLitres > 0 && $totVoy > 0 && $targetVoy > 0) {
+    $targetCarb = (int)round(($totLitres / $totVoy) * $targetVoy);
+}
+if ($targetCarb > 0) {
+    $pctCons = $targetCarb > 0 ? min(100, round($totLitres / $targetCarb * 100, 1)) : 0;
+    $html .= '<div style="margin-top:6px;font-size:9px;"><strong>Consommation:</strong> ' . number_format($totLitres, 0, ',', ' ') . ' L / ' . number_format($targetCarb, 0, ',', ' ') . ' L (' . $pctCons . '%)</div>';
+}
 $html .= '</tbody></table><div class="footer">© ' . date('Y') . ' - Export interne</div></body></html>';
 
 if (!class_exists('Dompdf\\Dompdf')) {

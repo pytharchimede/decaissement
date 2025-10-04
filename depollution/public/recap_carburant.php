@@ -145,7 +145,8 @@ function _pct($v, $t)
 }
 $pVoy = _pct($totalVoyages, $target_voyages);
 $pVol = _pct($totalCubage, $target_volume);
-$pCar = _pct($totalCarb, $target_carb);
+// $pCar (progression carburant montant) n'est plus utilisé depuis remplacement par progression litres
+// (gardé commenté une itération pour trace) : $pCar = _pct($totalCarb, $target_carb);
 $remainingVoyages = max(0, $target_voyages - $totalVoyages);
 $remainingVolume = max(0, $target_volume - $totalCubage);
 $avgVolActuel = $totalVoyages > 0 ? $totalCubage / $totalVoyages : 0;
@@ -425,12 +426,22 @@ $targetVolumeFmt = number_format($target_volume, 1, ',', ' ');
                     </div>
                     <div class="text-right text-[10px] mt-1 font-semibold text-yellow-700"><?= $pVol ?>%</div>
                 </div>
-                <div class="bg-white p-3 rounded card">
-                    <div class="text-[10px] text-gray-500 mb-1">Progression Carburant (<?= number_format($totalCarb, 0, ',', ' ') ?>/<?= number_format($target_carb, 0, ',', ' ') ?>)</div>
-                    <div class="w-full h-3 bg-gray-200 rounded">
-                        <div style="width:<?= $pCar ?>%" class="h-3 rounded bg-gradient-to-r from-yellow-400 to-yellow-600"></div>
+                <?php
+                // Nouvelle logique : Consommation réelle (litres) vs Prévision (litres)
+                // Si l'utilisateur fournit target_carb (déjà calculé plus haut), on le considère comme objectif en litres.
+                // Sinon on retombe sur estimation dérivée (déjà calculée dans $target_carb lors de l'initialisation).
+                $litresObjectif = $target_carb; // Objectif litres (fourni ou estimé : (litres totaux / voyages réalisés) * obj voyages)
+                $pctConsommation = _pct($totalLitres, $litresObjectif);
+                $barColor = 'bg-gradient-to-r from-red-500 to-red-600';
+                if ($pctConsommation >= 80) $barColor = 'bg-gradient-to-r from-yellow-400 to-yellow-600';
+                if ($pctConsommation > 100) $barColor = 'bg-gradient-to-r from-green-400 to-green-600';
+                ?>
+                <div class="bg-white p-3 rounded card" title="Objectif litres = valeur fournie ou (litres réalisés / voyages réalisés) * objectif voyages">
+                    <div class="text-[10px] text-gray-500 mb-1" title="Consommation réelle vs objectif prévisionnel en litres">Consommation Carburant (<?= number_format($totalLitres, 0, ',', ' ') ?> L / <?= number_format($litresObjectif, 0, ',', ' ') ?> L)</div>
+                    <div class="w-full h-3 bg-gray-200 rounded" title="<?= $pctConsommation ?>% atteint">
+                        <div style="width:<?= $pctConsommation ?>%" class="h-3 rounded <?= $barColor ?>"></div>
                     </div>
-                    <div class="text-right text-[10px] mt-1 font-semibold text-yellow-700"><?= $pCar ?>%</div>
+                    <div class="text-right text-[10px] mt-1 font-semibold text-yellow-700" title="Progression actuelle"><?= $pctConsommation ?>%</div>
                 </div>
                 <div class="bg-white p-3 rounded card text-[10px] leading-4">
                     <div class="font-semibold mb-1">Objectifs / Moyennes</div>
