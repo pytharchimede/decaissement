@@ -86,22 +86,58 @@ document.addEventListener("DOMContentLoaded", function () {
         },
         body: `entreprise=${encodeURIComponent(entreprise)}`,
       })
-        .then((response) => response.json())
+        .then((response) => {
+          console.log("Response status:", response.status);
+          console.log("Response headers:", response.headers);
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          // Obtenir le texte brut pour debug
+          return response.text().then((text) => {
+            console.log("Response text:", text);
+            try {
+              return JSON.parse(text);
+            } catch (e) {
+              console.error("JSON parse error:", e);
+              throw new Error(
+                "Réponse invalide du serveur: " + text.substring(0, 100)
+              );
+            }
+          });
+        })
         .then((data) => {
+          console.log("Données reçues (type:", typeof data, "):", data);
+          console.log("Is array:", Array.isArray(data));
+          console.log("Data length:", data ? data.length : "N/A");
+
           // Réinitialiser les options du dropdown
           chantierDropdown.innerHTML =
             '<option value="">--Choisir Chantier--</option>';
 
-          // Ajouter les chantiers retournés
-          if (data.length > 0) {
-            data.forEach((chantier) => {
+          // Vérifier si data est un tableau et non un objet d'erreur
+          if (Array.isArray(data) && data.length > 0) {
+            console.log("Ajout de", data.length, "chantiers au dropdown");
+            data.forEach((chantier, index) => {
+              console.log(`Chantier ${index}:`, chantier);
               const option = document.createElement("option");
               option.value = chantier.id_chantier;
-              option.textContent = chantier.num_chantier;
+              option.textContent =
+                chantier.num_chantier || chantier.lib_chantier;
               chantierDropdown.appendChild(option);
             });
+            console.log("Chantiers ajoutés avec succès!");
+          } else if (data && data.error) {
+            // Erreur retournée par le serveur
+            console.error("Erreur serveur:", data.error);
+            const option = document.createElement("option");
+            option.value = "";
+            option.textContent = "Erreur: " + data.error;
+            chantierDropdown.appendChild(option);
           } else {
             // Message si aucun chantier trouvé
+            console.log("Aucun chantier trouvé pour l'entreprise:", entreprise);
             const option = document.createElement("option");
             option.value = "";
             option.textContent =
@@ -112,7 +148,9 @@ document.addEventListener("DOMContentLoaded", function () {
         .catch((error) => {
           console.error("Erreur lors du chargement des chantiers :", error);
           chantierDropdown.innerHTML =
-            '<option value="">Erreur lors du chargement</option>';
+            '<option value="">Erreur lors du chargement: ' +
+            error.message +
+            "</option>";
         });
     });
   });

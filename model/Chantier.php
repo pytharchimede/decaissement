@@ -36,11 +36,42 @@ class Chantier
     // Lire tous les chantiers de l'entreprise selectionnée
     public function getAllChantiersByEntreprise($entreprise)
     {
-        $sql = "SELECT * FROM chantier WHERE entreprise = :entreprise AND num_chantier != '' ";
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->bindParam(':entreprise', $entreprise, PDO::PARAM_STR);
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        try {
+            // D'abord, vérifions si la colonne 'entreprise' existe
+            $checkColumn = "SHOW COLUMNS FROM chantier LIKE 'entreprise'";
+            $stmt = $this->pdo->query($checkColumn);
+            $columnExists = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($columnExists) {
+                // La colonne entreprise existe
+                $sql = "SELECT * FROM chantier WHERE entreprise = :entreprise AND num_chantier != '' ORDER BY num_chantier";
+                $stmt = $this->pdo->prepare($sql);
+                $stmt->bindParam(':entreprise', $entreprise, PDO::PARAM_STR);
+            } else {
+                // La colonne entreprise n'existe pas, essayons avec une autre logique
+                // Peut-être que l'entreprise est déterminée par le nom du chantier ou une autre colonne
+
+                // Vérification si lib_chantier contient l'entreprise
+                $sql = "SELECT * FROM chantier WHERE lib_chantier LIKE :entreprise AND num_chantier != '' ORDER BY num_chantier";
+                $stmt = $this->pdo->prepare($sql);
+                $entreprisePattern = '%' . $entreprise . '%';
+                $stmt->bindParam(':entreprise', $entreprisePattern, PDO::PARAM_STR);
+            }
+
+            $stmt->execute();
+            $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Log pour debug
+            error_log("SQL Query executed. Results count: " . count($result));
+            if (count($result) > 0) {
+                error_log("First result: " . json_encode($result[0]));
+            }
+
+            return $result;
+        } catch (PDOException $e) {
+            error_log("Database error in getAllChantiersByEntreprise: " . $e->getMessage());
+            return [];
+        }
     }
 
 
