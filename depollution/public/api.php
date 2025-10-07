@@ -10,6 +10,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once __DIR__ . '/../../model/Database.php';
+$__db = (new Database())->getConnection();
+// Migration légère : ajouter colonne generation_fiches si absente (avant toute logique qui pourrait la requêter)
+try {
+    $col = $__db->query("SHOW COLUMNS FROM depollution_voyage LIKE 'generation_fiches'")->fetch();
+    if (!$col) {
+        try {
+            $__db->exec("ALTER TABLE depollution_voyage ADD COLUMN generation_fiches TINYINT DEFAULT 0");
+        } catch (Throwable $eAlter) {
+            // Ignorer si droits insuffisants
+        }
+    }
+} catch (Throwable $eChkGen) { /* ignore */
+}
+// (Optionnel) préparer table trace si absente - non bloquant
+try {
+    $__db->exec('CREATE TABLE IF NOT EXISTS depollution_fiche_trace (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        voyage_id INT NOT NULL,
+        type_fiche VARCHAR(30) NOT NULL,
+        num_fiche VARCHAR(50) NOT NULL,
+        montant DOUBLE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+} catch (Throwable $eTrace) { /* ignore */
+}
+unset($__db);
 
 // ---------- Constantes métier ----------
 if (!defined('DEPOLLUTION_CARBURANT_PRIX_LITRE')) {
@@ -711,14 +737,49 @@ if ($action === 'updateVoyageOp2') {
     $carbL = (float)$payload['carburant_litre'];
     $carbM = (float)$payload['carburant_montant'];
     try {
-        // Récupérer détails nécessaires + flag potentiellement existant generation_fiches
-        $st = $pdo->prepare('SELECT v.montant_origine, v.generation_fiches, v.prestataire_id, v.chauffeur_id, v.camion_id, c.matricule, ch.nom chauffeur_nom, ch.telephone chauffeur_tel
-                             FROM depollution_voyage v
-                             JOIN depollution_camion c ON v.camion_id=c.id
-                             JOIN depollution_chauffeur ch ON v.chauffeur_id=ch.id
-                             WHERE v.id=?');
-        $st->execute([$voyageId]);
-        $row = $st->fetch(PDO::FETCH_ASSOC);
+        // Vérifier si la colonne generation_fiches existe (compatibilité versions anciennes du schéma)
+        $hasGenerationCol = true;
+        try {
+            $pdo->query("SELECT generation_fiches FROM depollution_voyage LIMIT 1");
+        } catch (Throwable $eCol) {
+            $hasGenerationCol = false;
+            // Tentative d'ajout rapide de la colonne (ignorer erreurs si droits insuffisants)
+            try {
+                $pdo->exec("ALTER TABLE depollution_voyage ADD COLUMN generation_fiches TINYINT DEFAULT 0");
+                $hasGenerationCol = true;
+            } catch (Throwable $eAdd) {
+                // Ignore, on fera un SELECT sans la colonne
+            }
+        }
+
+        // Requête principale avec fallback sans la colonne si nécessaire
+        if ($hasGenerationCol) {
+            try {
+                $st = $pdo->prepare('SELECT v.montant_origine, v.generation_fiches, v.prestataire_id, v.chauffeur_id, v.camion_id, c.matricule, ch.nom chauffeur_nom, ch.telephone chauffeur_tel
+                                     FROM depollution_voyage v
+                                     JOIN depollution_camion c ON v.camion_id=c.id
+                                     JOIN depollution_chauffeur ch ON v.chauffeur_id=ch.id
+                                     WHERE v.id=?');
+                $st->execute([$voyageId]);
+                $row = $st->fetch(PDO::FETCH_ASSOC);
+            } catch (Throwable $eSel) {
+                // Fallback sans la colonne si l'erreur persiste (ex: absence droits alter mais colonne absente réellement)
+                $hasGenerationCol = false;
+            }
+        }
+        if (!$hasGenerationCol) {
+            $st = $pdo->prepare('SELECT v.montant_origine, v.prestataire_id, v.chauffeur_id, v.camion_id, c.matricule, ch.nom chauffeur_nom, ch.telephone chauffeur_tel
+                                 FROM depollution_voyage v
+                                 JOIN depollution_camion c ON v.camion_id=c.id
+                                 JOIN depollution_chauffeur ch ON v.chauffeur_id=ch.id
+                                 WHERE v.id=?');
+            $st->execute([$voyageId]);
+            $row = $st->fetch(PDO::FETCH_ASSOC);
+            if ($row) {
+                // Simuler la colonne manquante à 0 (pas encore généré)
+                $row['generation_fiches'] = 0;
+            }
+        }
         if (!$row) json_out(['ok' => false, 'error' => 'Voyage introuvable'], 404);
         if (!empty($row['generation_fiches'])) {
             json_out(['ok' => false, 'error' => 'Fiches déjà générées pour ce voyage'], 409);
