@@ -127,6 +127,16 @@
         fetch(API + '?action=configCarburant').then(r => r.json()).then(j => {
             if (j.ok) prixLitre = j.prix_litre;
         });
+        // Helper échappement basique pour éviter injection HTML
+        const h = (str) => {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        };
         const cardsWrap = document.getElementById('voyagesCards');
         const empty2 = document.getElementById('emptyState2');
         const quick2 = document.getElementById('quickFilter2');
@@ -162,10 +172,11 @@
                 if (q && !txt.includes(q)) return;
                 visible++;
                 const active = v.id == selectedId;
-                html += `<div class='voy-card ${active?'active':''}' data-id='${v.id}'>
-                    <div class='flex items-center justify-between'><span class='badge-sm'>#${v.id}</span><span class='text-[10px] text-yellow-800 font-medium'>${v.date_voyage}</span></div>
-                    <div class='text-[11px] font-semibold text-slate-700'>${v.camion_matricule||''}</div>
-                    <div class='text-[10px] text-slate-600'>${v.chauffeur||''}</div>
+                html += `<div class='voy-card ${active?'active':''}' data-id='${h(v.id)}'>
+                    <div class='flex items-center justify-between'><span class='badge-sm'>#${h(v.id)}</span><span class='text-[10px] text-yellow-800 font-medium'>${h(v.date_voyage)}</span></div>
+                    <div class='text-[11px] font-semibold text-slate-700'>${h(v.camion_matricule)||''}</div>
+                    <div class='text-[10px] text-slate-600'>${h(v.chauffeur)||''}</div>
+                    <div class='text-[10px] text-amber-600'>Prest: ${h(v.prestataire)||''}</div>
                     <div class='text-[10px] text-yellow-700'>Orig: ${Number(v.montant_origine||0).toLocaleString('fr-FR')} CFA</div>
                     <div class='text-[10px] text-slate-500'>Frais: ${Number(v.frais_route||0).toLocaleString('fr-FR')} | Carb: ${Number(v.carburant_montant||0).toLocaleString('fr-FR')}</div>
                 </div>`;
@@ -190,6 +201,16 @@
             form.frais_route.value = v.frais_route || 0;
             form.carburant_litre.value = v.carburant_litre || 50;
             form.carburant_montant.value = v.carburant_montant || (form.carburant_litre.value || 0) * prixLitre;
+            // Affichage prestataire dans un élément dédié si non encore présent
+            let prestSpan = document.getElementById('prestataireInfo');
+            if (!prestSpan) {
+                const container = document.createElement('div');
+                container.className = 'text-[11px] text-slate-600';
+                container.id = 'prestataireInfo';
+                form.prepend(container);
+                prestSpan = container;
+            }
+            prestSpan.innerHTML = '<strong>Prestataire:</strong> ' + h(v.prestataire || '');
             computeReel();
             editModal.classList.add('open');
         }
