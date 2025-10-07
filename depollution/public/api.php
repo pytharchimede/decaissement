@@ -1029,6 +1029,64 @@ if ($action === 'updateVoyageOp2') {
     }
 }
 
+// ---------- Annulation voyage (Opérateur 2) ----------
+if ($action === 'cancelVoyageOp2') {
+    $payload = $_POST;
+    require_fields($payload, ['voyage_id']);
+    $voyageId = (int)$payload['voyage_id'];
+    $reason = trim($payload['reason'] ?? '');
+    try {
+        // Vérifier existence voyage + statut
+        $st = $pdo->prepare('SELECT id, statut, generation_fiches FROM depollution_voyage WHERE id=?');
+        try {
+            $st->execute([$voyageId]);
+        } catch (Throwable $eSelGen) {
+            // Fallback si colonne generation_fiches absente
+            $st = $pdo->prepare('SELECT id, statut, 0 AS generation_fiches FROM depollution_voyage WHERE id=?');
+            $st->execute([$voyageId]);
+        }
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$row) json_out(['ok' => false, 'error' => 'Voyage introuvable'], 404);
+        if (in_array($row['statut'], ['CLOS', 'ANNULE'], true)) {
+            json_out(['ok' => false, 'error' => 'Voyage déjà ' . strtolower($row['statut'])]);
+        }
+        if (!empty($row['generation_fiches'])) {
+            json_out(['ok' => false, 'error' => 'Impossible: fiches déjà générées']);
+        }
+        // Ajout colonnes cancel_reason / canceled_at si absentes
+        $needCols = false;
+        try {
+            $pdo->query("SELECT cancel_reason, canceled_at FROM depollution_voyage LIMIT 1");
+        } catch (Throwable $eCols) {
+            $needCols = true;
+        }
+        if ($needCols) {
+            try {
+                $pdo->exec("ALTER TABLE depollution_voyage ADD COLUMN cancel_reason VARCHAR(255) NULL");
+            } catch (Throwable $e1) { /* ignore */
+            }
+            try {
+                $pdo->exec("ALTER TABLE depollution_voyage ADD COLUMN canceled_at DATETIME NULL");
+            } catch (Throwable $e2) { /* ignore */
+            }
+        }
+        $now = date('Y-m-d H:i:s');
+        // Mise à jour
+        try {
+            $upd = $pdo->prepare('UPDATE depollution_voyage SET statut="ANNULE", cancel_reason=?, canceled_at=? WHERE id=?');
+            $ok = $upd->execute([$reason !== '' ? mb_substr($reason, 0, 250) : null, $now, $voyageId]);
+        } catch (Throwable $eUpd) {
+            // Fallback si colonnes pas disponibles (statut seulement)
+            $upd = $pdo->prepare('UPDATE depollution_voyage SET statut="ANNULE" WHERE id=?');
+            $ok = $upd->execute([$voyageId]);
+        }
+        if (!$ok) json_out(['ok' => false, 'error' => 'Échec annulation']);
+        json_out(['ok' => true, 'voyage_id' => $voyageId, 'statut' => 'ANNULE']);
+    } catch (Throwable $e) {
+        json_out(['ok' => false, 'error' => $e->getMessage()], 400);
+    }
+}
+
 // ---------- Listing voyages (temps réel) ----------
 if ($action === 'listVoyages') {
     $statut = isset($_GET['statut']) && in_array($_GET['statut'], ['SAISI', 'CLOS']) ? $_GET['statut'] : null;

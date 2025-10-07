@@ -108,6 +108,7 @@
                         </div>
                         <p class="text-[10px] text-slate-600">Modifier litres ajuste le montant et inversement (prix auto config).</p>
                         <div class="flex justify-end pt-2">
+                            <button type="button" id="btnCancelVoy" class="mr-2 px-3 py-2 rounded border border-red-300 text-red-700 text-[11px] font-semibold hover:bg-red-50">Annuler</button>
                             <button type="submit" class="btn-yellow">Clore le voyage</button>
                         </div>
                     </form>
@@ -272,6 +273,36 @@
                 editModal.classList.remove('open');
             }).catch(() => toast('Erreur réseau', false));
         });
+        // Annulation voyage
+        const btnCancelVoy = document.getElementById('btnCancelVoy');
+        if (btnCancelVoy) {
+            btnCancelVoy.addEventListener('click', () => {
+                if (!selectedId) return;
+                const motif = prompt('Motif annulation (optionnel) :', '');
+                if (motif === null) return; // annulé
+                if (!confirm('Confirmer annulation du voyage #' + selectedId + ' ?')) return;
+                const fd = new FormData();
+                fd.append('action', 'cancelVoyageOp2');
+                fd.append('voyage_id', selectedId);
+                if (motif.trim() !== '') fd.append('reason', motif.trim());
+                fetch(API, {
+                        method: 'POST',
+                        body: fd
+                    })
+                    .then(r => r.json())
+                    .then(j => {
+                        if (!j.ok) {
+                            toast(j.error || 'Annulation échouée', false);
+                            return;
+                        }
+                        toast('Voyage #' + selectedId + ' annulé');
+                        load();
+                        clearSelection();
+                        editModal.classList.remove('open');
+                    })
+                    .catch(() => toast('Erreur réseau', false));
+            });
+        }
         // Theme toggle
         const themeBtn2 = document.getElementById('toggleTheme2');
 
