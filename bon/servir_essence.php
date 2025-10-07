@@ -129,17 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // Vérification de conformité du document (modèle VINKO)
-        if (!isset($error)) {
-            $verify = OcrReceiptAnalyzer::verifyDocument('vinko_receipt', $tmp);
-            if (!($verify['ok'] ?? false)) {
-                $msg = 'Reçu non conforme au modèle VINKO.';
-                if (!empty($verify['errors'])) {
-                    $msg .= ' Détails: ' . implode('; ', (array)$verify['errors']);
-                }
-                $error = $msg;
-            }
-        }
+        // Contrôle IA désactivé : on ne vérifie plus la conformité du document via OCR
 
         if (!isset($error)) {
             $safeBon = preg_replace('/[^A-Za-z0-9_-]/', '', (string)$code_bon);

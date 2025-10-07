@@ -186,10 +186,66 @@ class OcrReceiptAnalyzer
             }
         }
 
-        // Tesseract (par défaut)
-        $tess = AppConfig::ocrTesseractPath();
-        if (!is_file($tess)) {
-            return ['ok' => false, 'error' => 'Tesseract introuvable', 'tesseract' => $tess];
+        // Tesseract (par défaut) – localisation robuste
+        $wanted = AppConfig::ocrTesseractPath();
+        $candidates = [];
+        if ($wanted) $candidates[] = $wanted;
+        // chemins standards Linux / macOS / déploiements custom
+        $candidates = array_merge($candidates, [
+            '/usr/bin/tesseract',
+            '/usr/local/bin/tesseract',
+            '/bin/tesseract',
+            '/opt/homebrew/bin/tesseract', // mac M1/M2
+            dirname(__DIR__) . '/bin/tesseract',
+        ]);
+        $checked = [];
+        $tess = null;
+        foreach ($candidates as $cand) {
+            $cand = rtrim($cand);
+            if ($cand === '' || isset($checked[$cand])) continue;
+            $checked[$cand] = true;
+            if (is_file($cand)) {
+                // Vérifier exécutable si possible
+                if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN' || @is_executable($cand)) {
+                    $tess = $cand;
+                    break;
+                }
+            }
+        }
+        $disableFns = array_map('trim', explode(',', (string)ini_get('disable_functions')));
+        $shellDisabled = in_array('shell_exec', $disableFns, true);
+        if (!$tess && !$shellDisabled) {
+            // tentative via which
+            $which = @shell_exec('which tesseract 2>/dev/null');
+            if ($which) {
+                $which = trim($which);
+                if ($which !== '' && is_file($which)) {
+                    $tess = $which;
+                    $checked[$which] = true;
+                }
+            }
+        }
+        if (!$tess) {
+            $suggestions = [];
+            if ($shellDisabled) {
+                $suggestions[] = "La fonction shell_exec est désactivée sur l'hébergement mutualisé (disable_functions).";
+            }
+            $suggestions[] = "Vérifiez que Tesseract est installé côté serveur (ex: apt install tesseract-ocr).";
+            $suggestions[] = "Si installation impossible (mutualisé), déployez un micro-service OCR (Docker) et basculez engine=\"paddle\" (variable 'ocr.engine').";
+            $suggestions[] = "Ou uploadez un binaire statique dans /model/../bin/tesseract et mettez le chemin exact dans l'admin (ocr.tesseract.path).";
+            $suggestions[] = "Réduisez la config de langue à 'eng' si les fichiers fra.traineddata manquent.";
+            return [
+                'ok' => false,
+                'error' => 'Tesseract introuvable sur le serveur',
+                'tesseract' => $wanted,
+                'candidates_tested' => array_keys($checked),
+                'disable_functions' => $disableFns,
+                'shell_exec_disabled' => $shellDisabled,
+                'suggestions' => $suggestions,
+                'engine' => 'tesseract',
+                'image' => $imgReal,
+                'preprocessed' => $prepPath ?? null,
+            ];
         }
         // Sanitize et commande compatible Windows (guillemets doubles)
         $psm = (int)$psm;

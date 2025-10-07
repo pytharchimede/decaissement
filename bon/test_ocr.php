@@ -298,6 +298,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <pre id="ocrTextBlock"><?= htmlspecialchars($ocrResult['text']) ?></pre>
             <?php else: ?>
                 <div class="alert error">OCR KO: <?= htmlspecialchars($ocrResult['error'] ?? 'inconnu') ?></div>
+                <?php if (!empty($ocrResult['suggestions']) && is_array($ocrResult['suggestions'])): ?>
+                    <div class="alert error" style="margin-top:8px;">
+                        <strong>Pistes de résolution :</strong>
+                        <ul style="margin:6px 0 0 18px;">
+                            <?php foreach ($ocrResult['suggestions'] as $s): ?>
+                                <li><?= htmlspecialchars($s) ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                <?php endif; ?>
                 <?php if (!empty($ocrResult['cmd'])): ?>
                     <details>
                         <summary style="cursor:pointer;">Commande exécutée (debug)</summary>
@@ -309,6 +319,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <pre><?php
                             $diag = [];
                             $diag['tesseract'] = $ocrResult['tesseract'] ?? AppConfig::ocrTesseractPath();
+                            if (!empty($ocrResult['candidates_tested'])) $diag['candidates_tested'] = $ocrResult['candidates_tested'];
+                            if (isset($ocrResult['shell_exec_disabled'])) $diag['shell_exec_disabled'] = $ocrResult['shell_exec_disabled'];
+                            if (!empty($ocrResult['disable_functions'])) $diag['disable_functions'] = $ocrResult['disable_functions'];
                             $diag['tessdata_dir'] = $ocrResult['tessdata_dir'] ?? '(non détecté)';
                             $diag['lang_config'] = AppConfig::ocrLang();
                             if (!empty($ocrResult['langs_missing']) && is_array($ocrResult['langs_missing'])) {
