@@ -17,6 +17,11 @@ if ($inputMethod === 'POST' && !empty($in['filters'])) {
 
 $params = [];
 $where = [];
+// Exclure par défaut les voyages annulés, sauf si include_canceled=1
+$includeCanceled = !empty($in['include_canceled']) && $in['include_canceled'] === '1';
+if (!$includeCanceled) {
+    $where[] = "COALESCE(v.statut,'') <> 'ANNULE'";
+}
 if (!empty($in['date_debut'])) {
     $where[] = 'v.date_voyage >= :d1';
     $params[':d1'] = $in['date_debut'];

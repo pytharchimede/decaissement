@@ -37,6 +37,10 @@ if (!empty($_GET['camion'])) {
     $where[] = 'c.matricule = :mat';
     $params[':mat'] = $_GET['camion'];
 }
+$includeCanceled = isset($_GET['include_canceled']) && $_GET['include_canceled'] === '1';
+if (!$includeCanceled) {
+    $where[] = "COALESCE(v.statut,'') <> 'ANNULE'";
+}
 $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
 $sql = "SELECT v.*, p.nom AS prestataire, c.matricule, ch.nom AS chauffeur, ch.telephone, b.numero AS bon
         FROM depollution_voyage v
