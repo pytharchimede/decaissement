@@ -1089,9 +1089,13 @@ if ($action === 'cancelVoyageOp2') {
 
 // ---------- Listing voyages (temps réel) ----------
 if ($action === 'listVoyages') {
-    $statut = isset($_GET['statut']) && in_array($_GET['statut'], ['SAISI', 'CLOS']) ? $_GET['statut'] : null;
+    $statut = isset($_GET['statut']) && in_array($_GET['statut'], ['SAISI', 'CLOS'], true) ? $_GET['statut'] : null;
+    $includeCanceled = isset($_GET['include_canceled']) && $_GET['include_canceled'] === '1';
     $limit = isset($_GET['limit']) ? max(1, min(1000, (int)$_GET['limit'])) : 200;
-    $where = $statut ? 'WHERE v.statut = :statut' : '';
+    $clauses = [];
+    if ($statut) $clauses[] = 'v.statut = :statut';
+    if (!$includeCanceled) $clauses[] = "v.statut <> 'ANNULE'";
+    $where = $clauses ? ('WHERE ' . implode(' AND ', $clauses)) : '';
     $sql = "SELECT v.*, p.nom prestataire, c.matricule, ch.nom chauffeur, ch.telephone, b.numero bon_numero
             FROM depollution_voyage v
             JOIN depollution_prestataire p ON v.prestataire_id=p.id
@@ -1099,12 +1103,13 @@ if ($action === 'listVoyages') {
             JOIN depollution_chauffeur ch ON v.chauffeur_id=ch.id
             JOIN depollution_bon_sortie b ON v.bon_sortie_id=b.id
             $where
-            ORDER BY v.id DESC LIMIT $limit";
+            ORDER BY v.id DESC LIMIT :lim";
     $st = $pdo->prepare($sql);
     if ($statut) $st->bindValue(':statut', $statut);
+    $st->bindValue(':lim', $limit, PDO::PARAM_INT);
     $st->execute();
     $rows = $st->fetchAll(PDO::FETCH_ASSOC);
-    json_out(['ok' => true, 'data' => $rows]);
+    json_out(['ok' => true, 'data' => $rows, 'include_canceled' => $includeCanceled ? 1 : 0]);
 }
 
 // Configuration carburant (prix litre etc.)
