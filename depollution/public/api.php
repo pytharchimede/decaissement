@@ -23,6 +23,31 @@ try {
     }
 } catch (Throwable $eChkGen) { /* ignore */
 }
+// Migration décaissement: ajouter colonnes solde/solde_at/solde_ref si absentes
+try {
+    $col = $__db->query("SHOW COLUMNS FROM depollution_voyage LIKE 'solde'")->fetch();
+    if (!$col) {
+        try {
+            $__db->exec("ALTER TABLE depollution_voyage ADD COLUMN solde TINYINT(1) DEFAULT 0");
+        } catch (Throwable $e) {
+        }
+    }
+    $col = $__db->query("SHOW COLUMNS FROM depollution_voyage LIKE 'solde_at'")->fetch();
+    if (!$col) {
+        try {
+            $__db->exec("ALTER TABLE depollution_voyage ADD COLUMN solde_at DATETIME NULL");
+        } catch (Throwable $e) {
+        }
+    }
+    $col = $__db->query("SHOW COLUMNS FROM depollution_voyage LIKE 'solde_ref'")->fetch();
+    if (!$col) {
+        try {
+            $__db->exec("ALTER TABLE depollution_voyage ADD COLUMN solde_ref VARCHAR(120) NULL");
+        } catch (Throwable $e) {
+        }
+    }
+} catch (Throwable $e) { /* ignore */
+}
 // (Optionnel) préparer table trace si absente - non bloquant
 try {
     $__db->exec('CREATE TABLE IF NOT EXISTS depollution_fiche_trace (
@@ -320,6 +345,9 @@ try {
         carburant_litre DECIMAL(10,2) DEFAULT 0,
         reel_recu DECIMAL(15,2) DEFAULT 0,
         statut ENUM('SAISI','CLOS') DEFAULT 'SAISI',
+        solde TINYINT(1) DEFAULT 0,
+        solde_at DATETIME NULL,
+        solde_ref VARCHAR(120) NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (prestataire_id) REFERENCES depollution_prestataire(id),
@@ -337,6 +365,24 @@ $action = $_GET['action'] ?? ($_POST['action'] ?? '');
 if ($action === 'listPrestataires') {
     $rows = $pdo->query('SELECT * FROM depollution_prestataire ORDER BY nom')->fetchAll(PDO::FETCH_ASSOC);
     json_out(['ok' => true, 'data' => $rows]);
+}
+
+// ---------- Décaissement: marquer voyage soldé/non soldé ----------
+if ($action === 'setVoyageSolde') {
+    $id = (int)($_POST['id'] ?? $_GET['id'] ?? 0);
+    $solde = isset($_POST['solde']) ? (int)$_POST['solde'] : (int)($_GET['solde'] ?? 0);
+    $ref = trim((string)($_POST['ref'] ?? $_GET['ref'] ?? ''));
+    if ($id <= 0) json_out(['ok' => false, 'error' => 'id requis'], 422);
+    try {
+        $sql = 'UPDATE depollution_voyage SET solde=?, solde_at=?, solde_ref=? WHERE id=?';
+        $dt = $solde ? date('Y-m-d H:i:s') : null;
+        $refFinal = $solde ? ($ref !== '' ? $ref : null) : null;
+        $st = $pdo->prepare($sql);
+        $st->execute([$solde ? 1 : 0, $dt, $refFinal, $id]);
+        json_out(['ok' => true, 'id' => $id, 'solde' => (int)$solde, 'solde_at' => $dt, 'solde_ref' => $refFinal]);
+    } catch (Throwable $e) {
+        json_out(['ok' => false, 'error' => $e->getMessage()], 500);
+    }
 }
 if ($action === 'importPrestataire') { // simple création manuelle
     $payload = $_POST;

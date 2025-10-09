@@ -22,6 +22,7 @@ if ($date_fin) {
 $prestataire_filters = isset($_GET['prestataire']) ? (array)$_GET['prestataire'] : [];
 $chauffeur_filter = $_GET['chauffeur'] ?? '';
 $camion_filter = $_GET['camion'] ?? '';
+$solde_filter = isset($_GET['solde']) ? $_GET['solde'] : '';
 if ($prestataire_filters) {
     $inParts = [];
     foreach ($prestataire_filters as $i => $val) {
@@ -38,6 +39,11 @@ if ($chauffeur_filter !== '') {
 if ($camion_filter !== '') {
     $where[] = 'c.matricule = :camion_mat';
     $params[':camion_mat'] = $camion_filter;
+}
+if ($solde_filter === '1') {
+    $where[] = 'v.solde = 1';
+} elseif ($solde_filter === '0') {
+    $where[] = 'COALESCE(v.solde,0) = 0';
 }
 $includeCanceled = isset($_GET['include_canceled']) && $_GET['include_canceled'] === '1';
 if (!$includeCanceled) {
@@ -77,6 +83,20 @@ foreach ($voyages as $v) {
     $totalLitres += (float)$v['carburant_litre'];
     $totalCubage += (float)$v['cubage'];
     $totalNbVoy += (int)$v['nombre_voyage'];
+}
+// Décaissement: récap soldé/non soldé
+$soldCount = 0;
+$unsoldCount = 0;
+$soldReel = 0.0;
+$unsoldReel = 0.0;
+foreach ($voyages as $v) {
+    if (!empty($v['solde'])) {
+        $soldCount++;
+        $soldReel += (float)$v['reel_recu'];
+    } else {
+        $unsoldCount++;
+        $unsoldReel += (float)$v['reel_recu'];
+    }
 }
 $prixLitre = ($totalLitres > 0 ? ($totalCarb / $totalLitres) : 0);
 // Préparation séries pour graphiques + prix moyen par litre + cubage quotidien
@@ -405,6 +425,14 @@ $targetVolumeFmt = number_format($target_volume, 1, ',', ' ');
                                 <?php endforeach; ?>
                             </select>
                         </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold mb-1">Décaissement</label>
+                            <select name="solde" class="border rounded px-2 py-1 text-xs w-full">
+                                <option value="" <?= $solde_filter === '' ? 'selected' : '' ?>>Tous</option>
+                                <option value="1" <?= $solde_filter === '1' ? 'selected' : '' ?>>Soldés</option>
+                                <option value="0" <?= $solde_filter === '0' ? 'selected' : '' ?>>Non soldés</option>
+                            </select>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -504,6 +532,14 @@ $targetVolumeFmt = number_format($target_volume, 1, ',', ' ');
                 <div class="text-xs text-gray-500">Carb/Mont (%)</div>
                 <div class="text-lg font-bold text-yellow-700"><?= number_format($ratioCarbMontant, 1, ',', ' ') ?></div>
             </div>
+            <div class="stat-box">
+                <div class="text-xs text-gray-500">Soldés (nb)</div>
+                <div class="text-lg font-bold text-yellow-700"><?= number_format($soldCount, 0, ',', ' ') ?></div>
+            </div>
+            <div class="stat-box">
+                <div class="text-xs text-gray-500">Non soldés (nb)</div>
+                <div class="text-lg font-bold text-yellow-700"><?= number_format($unsoldCount, 0, ',', ' ') ?></div>
+            </div>
         </div>
         <div class="bg-white rounded-xl shadow card p-4 mb-6">
             <?php if (count($labels) > 0): ?>
@@ -541,6 +577,7 @@ $targetVolumeFmt = number_format($target_volume, 1, ',', ' ');
                             <th>Tel</th>
                             <th>Camion</th>
                             <th>Bon</th>
+                            <th>Solde</th>
                             <th>Nb</th>
                             <th>Cubage</th>
                             <th>Montant Orig</th>
@@ -559,6 +596,12 @@ $targetVolumeFmt = number_format($target_volume, 1, ',', ' ');
                                 <td><?= htmlspecialchars($v['telephone'] ?? '') ?></td>
                                 <td><?= htmlspecialchars($v['matricule'] ?? '') ?></td>
                                 <td><?= htmlspecialchars($v['bon'] ?? '') ?></td>
+                                <td>
+                                    <?php $isSold = !empty($v['solde']);
+                                    $btnCls = $isSold ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700';
+                                    $label = $isSold ? 'Soldé' : 'Non soldé'; ?>
+                                    <button type="button" class="btn-solde px-2 py-0.5 rounded text-xs <?= $btnCls ?>" data-id="<?= (int)$v['id'] ?>" data-solde="<?= $isSold ? 1 : 0 ?>" title="Basculer l\'état de décaissement"><?= $label ?></button>
+                                </td>
                                 <td class="text-right"><?= (int)$v['nombre_voyage'] ?></td>
                                 <td class="text-right"><?= number_format($v['cubage'], 2, ',', ' ') ?></td>
                                 <td class="text-right"><?= number_format($v['montant_origine'], 0, ',', ' ') ?></td>
@@ -970,7 +1013,7 @@ $targetVolumeFmt = number_format($target_volume, 1, ',', ' ');
                 maximumFractionDigits: 2
             }).format(n);
             const totalRow = [
-                'TOTAL', '', '', '', '', '',
+                'TOTAL', '', '', '', '', '', '',
                 fmtInt(totNb),
                 fmt2(totCub),
                 fmtInt(totMont),
@@ -1001,7 +1044,7 @@ $targetVolumeFmt = number_format($target_volume, 1, ',', ' ');
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
             }).format(n);
-            const totalRow1 = ['TOTAL', '', '', '', '', '', fmtInt(totNb), fmt2(totCub), fmtInt(totMont), fmtInt(totFrais), fmtInt(totCarb), fmtInt(totLit), fmtInt(totReel)];
+            const totalRow1 = ['TOTAL', '', '', '', '', '', '', fmtInt(totNb), fmt2(totCub), fmtInt(totMont), fmtInt(totFrais), fmtInt(totCarb), fmtInt(totLit), fmtInt(totReel)];
             const sheet1 = XLSX.utils.aoa_to_sheet([headers1, ...rows1, totalRow1]);
             XLSX.utils.book_append_sheet(wb, sheet1, 'Voyages');
             // Prestataires sheet
@@ -1062,12 +1105,15 @@ $targetVolumeFmt = number_format($target_volume, 1, ',', ' ');
                     const tr = document.createElement('tr');
                     tr.className = 'border-b';
                     const nfInt = n => new Intl.NumberFormat('fr-FR').format(n);
+                    const soldBtnCls = (v.solde && Number(v.solde) === 1) ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700';
+                    const soldLbl = (v.solde && Number(v.solde) === 1) ? 'Soldé' : 'Non soldé';
                     tr.innerHTML = `<td>${v.date_voyage||''}</td>
                 <td>${v.prestataire||''}</td>
                 <td>${v.chauffeur||''}</td>
                 <td>${v.telephone||''}</td>
                 <td>${v.matricule||''}</td>
                 <td>${v.bon||''}</td>
+                <td><button type='button' class='btn-solde px-2 py-0.5 rounded text-xs ${soldBtnCls}' data-id='${v.id}' data-solde='${v.solde && Number(v.solde)===1 ? 1 : 0}' title='Basculer l\'état de décaissement'>${soldLbl}</button></td>
                 <td class='text-right'>${nfInt(v.nombre_voyage||0)}</td>
                 <td class='text-right'>${nfInt(parseFloat(v.cubage).toFixed(2))}</td>
                 <td class='text-right'>${nfInt(v.montant_origine||0)}</td>
@@ -1085,6 +1131,44 @@ $targetVolumeFmt = number_format($target_volume, 1, ',', ' ');
         scrollContainer.addEventListener('scroll', () => {
             if (scrollContainer.scrollTop + scrollContainer.clientHeight + 60 >= scrollContainer.scrollHeight) {
                 loadMore();
+            }
+        });
+
+        // Toggle soldé / non soldé
+        document.getElementById('voyagesBody')?.addEventListener('click', async (e) => {
+            const btn = e.target.closest('.btn-solde');
+            if (!btn) return;
+            const id = btn.getAttribute('data-id');
+            const cur = btn.getAttribute('data-solde') === '1' ? 1 : 0;
+            const next = cur ? 0 : 1;
+            const ref = next ? (prompt('Référence de décaissement (optionnel) :', '') || '') : '';
+            try {
+                const form = new FormData();
+                form.append('action', 'setVoyageSolde');
+                form.append('id', id);
+                form.append('solde', String(next));
+                if (ref) form.append('ref', ref);
+                const resp = await fetch('api.php', {
+                    method: 'POST',
+                    body: form
+                });
+                const js = await resp.json();
+                if (js && js.ok) {
+                    btn.setAttribute('data-solde', String(next));
+                    if (next) {
+                        btn.textContent = 'Soldé';
+                        btn.classList.remove('bg-gray-100', 'text-gray-700');
+                        btn.classList.add('bg-green-100', 'text-green-700');
+                    } else {
+                        btn.textContent = 'Non soldé';
+                        btn.classList.remove('bg-green-100', 'text-green-700');
+                        btn.classList.add('bg-gray-100', 'text-gray-700');
+                    }
+                } else {
+                    alert('Echec maj: ' + (js && js.error ? js.error : 'inconnu'));
+                }
+            } catch (err) {
+                alert('Erreur réseau maj décaissement');
             }
         });
     </script>
