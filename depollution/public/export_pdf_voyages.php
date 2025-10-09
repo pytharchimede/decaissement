@@ -93,7 +93,21 @@ if ($charts) {
     $html .= '</div>';
 }
 $html .= '<table class="table"><thead><tr><th>Date</th><th>Prestataire</th><th>Chauffeur</th><th>Camion</th><th>Nb</th><th>Cubage</th><th>Montant</th><th>Frais</th><th>Carb</th><th>Litres</th><th>Réel</th></tr></thead><tbody>';
+$sumNb = 0;
+$sumCub = 0;
+$sumMont = 0;
+$sumFrais = 0;
+$sumCarb = 0;
+$sumLit = 0;
+$sumReel = 0;
 foreach ($rows as $r) {
+    $sumNb += (int)$r['nombre_voyage'];
+    $sumCub += (float)$r['cubage'];
+    $sumMont += (float)$r['montant_origine'];
+    $sumFrais += (float)$r['frais_route'];
+    $sumCarb += (float)$r['carburant_montant'];
+    $sumLit += (float)$r['carburant_litre'];
+    $sumReel += (float)$r['reel_recu'];
     $html .= '<tr>'
         . '<td>' . htmlspecialchars($r['date_voyage']) . '</td>'
         . '<td>' . htmlspecialchars($r['prestataire']) . '</td>'
@@ -108,6 +122,17 @@ foreach ($rows as $r) {
         . '<td style="text-align:right">' . number_format($r['reel_recu'], 0, ',', ' ') . '</td>'
         . '</tr>';
 }
+// Ligne totaux
+$html .= '<tr>'
+    . '<td colspan="4" style="text-align:right;font-weight:bold">TOTAL</td>'
+    . '<td style="text-align:right;font-weight:bold">' . number_format($sumNb, 0, ',', ' ') . '</td>'
+    . '<td style="text-align:right;font-weight:bold">' . number_format($sumCub, 2, ',', ' ') . '</td>'
+    . '<td style="text-align:right;font-weight:bold">' . number_format($sumMont, 0, ',', ' ') . '</td>'
+    . '<td style="text-align:right;font-weight:bold">' . number_format($sumFrais, 0, ',', ' ') . '</td>'
+    . '<td style="text-align:right;font-weight:bold">' . number_format($sumCarb, 0, ',', ' ') . '</td>'
+    . '<td style="text-align:right;font-weight:bold">' . number_format($sumLit, 0, ',', ' ') . '</td>'
+    . '<td style="text-align:right;font-weight:bold">' . number_format($sumReel, 0, ',', ' ') . '</td>'
+    . '</tr>';
 // Ajout d'un récap de la consommation vs objectif si paramètres fournis
 $totLitres = array_sum(array_map(fn($r) => (float)$r['carburant_litre'], $rows));
 $totCarbMontant = array_sum(array_map(fn($r) => (float)$r['carburant_montant'], $rows));

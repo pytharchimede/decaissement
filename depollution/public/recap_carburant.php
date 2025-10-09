@@ -702,6 +702,14 @@ $targetVolumeFmt = number_format($target_volume, 1, ',', ' ');
         const dataLit = <?= json_encode($serieLitre) ?>;
         const dataPrix = <?= json_encode($seriePrixLitre) ?>;
         const dataCubage = <?= json_encode($serieCubage) ?>;
+        // Totaux filtrés (calculés serveur) pour export global
+        const totNb = <?= json_encode((int)$totalNbVoy) ?>;
+        const totCub = <?= json_encode((float)$totalCubage) ?>;
+        const totMont = <?= json_encode((float)$totalMontantOrigine) ?>;
+        const totFrais = <?= json_encode((float)$totalFrais) ?>;
+        const totCarb = <?= json_encode((float)$totalCarb) ?>;
+        const totLit = <?= json_encode((float)$totalLitres) ?>;
+        const totReel = <?= json_encode((float)$totalReel) ?>;
         const topBenefLabels = <?= json_encode($topBenefLabels) ?>;
         const topBenefCubage = <?= json_encode($topBenefCubage) ?>;
         const initialLoaded = <?= count($initialRows) ?>;
@@ -955,7 +963,24 @@ $targetVolumeFmt = number_format($target_volume, 1, ',', ' ');
             const table = document.getElementById('tableVoyages');
             const header = [...table.querySelectorAll('thead th')].map(th => th.innerText.trim());
             const rows = [...table.querySelectorAll('tbody tr')].map(tr => [...tr.children].map(td => td.innerText.trim()));
-            const csv = [header.join(';')].concat(rows.map(r => r.map(v => `"${v.replace(/"/g,'""')}"`).join(';'))).join('\n');
+            // Ajouter ligne TOTAL basée sur totaux globaux filtrés
+            const fmtInt = n => new Intl.NumberFormat('fr-FR').format(n);
+            const fmt2 = n => new Intl.NumberFormat('fr-FR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(n);
+            const totalRow = [
+                'TOTAL', '', '', '', '', '',
+                fmtInt(totNb),
+                fmt2(totCub),
+                fmtInt(totMont),
+                fmtInt(totFrais),
+                fmtInt(totCarb),
+                fmtInt(totLit),
+                fmtInt(totReel)
+            ];
+            const all = [header, ...rows, totalRow];
+            const csv = all.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n');
             const blob = new Blob([csv], {
                 type: 'text/csv;charset=utf-8;'
             });
@@ -970,14 +995,46 @@ $targetVolumeFmt = number_format($target_volume, 1, ',', ' ');
             const table1 = document.getElementById('tableVoyages');
             const headers1 = [...table1.querySelectorAll('thead th')].map(th => th.innerText.trim());
             const rows1 = [...table1.querySelectorAll('tbody tr')].map(tr => [...tr.children].map(td => td.innerText.trim()));
-            const sheet1 = XLSX.utils.aoa_to_sheet([headers1, ...rows1]);
+            // Ligne TOTAL pour Voyages
+            const fmtInt = n => new Intl.NumberFormat('fr-FR').format(n);
+            const fmt2 = n => new Intl.NumberFormat('fr-FR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(n);
+            const totalRow1 = ['TOTAL', '', '', '', '', '', fmtInt(totNb), fmt2(totCub), fmtInt(totMont), fmtInt(totFrais), fmtInt(totCarb), fmtInt(totLit), fmtInt(totReel)];
+            const sheet1 = XLSX.utils.aoa_to_sheet([headers1, ...rows1, totalRow1]);
             XLSX.utils.book_append_sheet(wb, sheet1, 'Voyages');
             // Prestataires sheet
             const table2 = document.getElementById('tablePrest');
             if (table2) {
                 const headers2 = [...table2.querySelectorAll('thead th')].map(th => th.innerText.trim());
                 const rows2 = [...table2.querySelectorAll('tbody tr')].map(tr => [...tr.children].map(td => td.innerText.trim()));
-                const sheet2 = XLSX.utils.aoa_to_sheet([headers2, ...rows2]);
+                // Ligne TOTAL pour Prestataires
+                // Colonnes: Prestataire | Voyages | Nb (saisi) | Cubage | Montant Orig | Frais | Carb | Litres | Prix/L | L/m³ | %Carb/Mont | Réel
+                const prixLGlobal = totLit > 0 ? (totCarb / totLit) : 0;
+                const lm3Global = totCub > 0 ? (totLit / totCub) : 0;
+                const ratioPctGlobal = totMont > 0 ? (totCarb / totMont * 100) : 0;
+                const totalRow2 = [
+                    'TOTAL',
+                    fmtInt(totVoyages), // voyages (nombre de lignes)
+                    fmtInt(totNb),
+                    fmt2(totCub),
+                    fmtInt(totMont),
+                    fmtInt(totFrais),
+                    fmtInt(totCarb),
+                    fmtInt(totLit),
+                    fmtInt(prixLGlobal),
+                    new Intl.NumberFormat('fr-FR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    }).format(lm3Global),
+                    new Intl.NumberFormat('fr-FR', {
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1
+                    }).format(ratioPctGlobal),
+                    fmtInt(totReel)
+                ];
+                const sheet2 = XLSX.utils.aoa_to_sheet([headers2, ...rows2, totalRow2]);
                 XLSX.utils.book_append_sheet(wb, sheet2, 'Prestataires');
             }
             XLSX.writeFile(wb, 'recap_carburant.xlsx');
