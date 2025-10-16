@@ -129,6 +129,157 @@ class DemandeEssenceRepository
     }
 
     /**
+     * Version paginée de searchForStation: applique les mêmes filtres + dédup par code_bon,
+     * ordonné par date_demande DESC, puis LIMIT/OFFSET.
+     */
+    public function searchForStationPaged(array $filters = [], int $offset = 0, int $limit = 50): array
+    {
+        if ($limit <= 0) {
+            $limit = 50;
+        }
+        if ($limit > 200) {
+            $limit = 200;
+        } // garde-fou
+        if ($offset < 0) {
+            $offset = 0;
+        }
+
+        $conditions = [];
+        $params = [];
+
+        if (empty($filters['include_disabled'])) {
+            $conditions[] = "(e.desactive IS NULL OR e.desactive = 0)";
+        }
+        if (!empty($filters['date_debut'])) {
+            $conditions[] = 'e.date_demande >= :date_debut';
+            $params[':date_debut'] = (string)$filters['date_debut'];
+        }
+        if (!empty($filters['date_fin'])) {
+            $conditions[] = 'e.date_demande <= :date_fin';
+            $params[':date_fin'] = (string)$filters['date_fin'];
+        }
+        if (!empty($filters['demandeur'])) {
+            $conditions[] = 'e.nom_beneficiaire LIKE :demandeur';
+            $params[':demandeur'] = '%' . (string)$filters['demandeur'] . '%';
+        }
+        if (!empty($filters['motif'])) {
+            $conditions[] = 'e.motif LIKE :motif';
+            $params[':motif'] = '%' . (string)$filters['motif'] . '%';
+        }
+        if (!empty($filters['num_fiche'])) {
+            $conditions[] = 'e.num_fiche = :num_fiche';
+            $params[':num_fiche'] = (string)$filters['num_fiche'];
+        }
+        if (!empty($filters['code_bon'])) {
+            $conditions[] = 'e.code_bon = :code_bon';
+            $params[':code_bon'] = (string)$filters['code_bon'];
+        }
+        if (!empty($filters['receipt_status'])) {
+            if ($filters['receipt_status'] === 'with') {
+                $conditions[] = "(e.img_recu_station IS NOT NULL AND e.img_recu_station <> '')";
+            } elseif ($filters['receipt_status'] === 'pending') {
+                $conditions[] = "(e.img_recu_station IS NULL OR e.img_recu_station = '')";
+            }
+        }
+
+        $where = $conditions ? ('WHERE ' . implode(' AND ', $conditions)) : '';
+        $whereSub = $where ? preg_replace('/\be\./', 'd.', $where) : '';
+
+        $sql = "SELECT e.*, f.precision_fiche
+                FROM demande_essence e
+                JOIN (
+                    SELECT d.code_bon, MIN(d.id) AS id
+                    FROM demande_essence d
+                    $whereSub
+                    GROUP BY d.code_bon
+                ) u ON u.id = e.id
+                LEFT JOIN fiche f ON f.num_fiche = e.num_fiche
+                ORDER BY e.date_demande DESC
+                LIMIT :limit OFFSET :offset";
+
+        $stmt = $this->pdo->prepare($sql);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue($k, $v);
+        }
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    /**
+     * Calcule les statistiques globales pour la vue station avec les filtres appliqués (dédup par code_bon)
+     * Retourne: [total_count, total_montant, served_count, pending_count]
+     */
+    public function statsForStation(array $filters = []): array
+    {
+        $conditions = [];
+        $params = [];
+
+        if (empty($filters['include_disabled'])) {
+            $conditions[] = "(e.desactive IS NULL OR e.desactive = 0)";
+        }
+        if (!empty($filters['date_debut'])) {
+            $conditions[] = 'e.date_demande >= :date_debut';
+            $params[':date_debut'] = (string)$filters['date_debut'];
+        }
+        if (!empty($filters['date_fin'])) {
+            $conditions[] = 'e.date_demande <= :date_fin';
+            $params[':date_fin'] = (string)$filters['date_fin'];
+        }
+        if (!empty($filters['demandeur'])) {
+            $conditions[] = 'e.nom_beneficiaire LIKE :demandeur';
+            $params[':demandeur'] = '%' . (string)$filters['demandeur'] . '%';
+        }
+        if (!empty($filters['motif'])) {
+            $conditions[] = 'e.motif LIKE :motif';
+            $params[':motif'] = '%' . (string)$filters['motif'] . '%';
+        }
+        if (!empty($filters['num_fiche'])) {
+            $conditions[] = 'e.num_fiche = :num_fiche';
+            $params[':num_fiche'] = (string)$filters['num_fiche'];
+        }
+        if (!empty($filters['code_bon'])) {
+            $conditions[] = 'e.code_bon = :code_bon';
+            $params[':code_bon'] = (string)$filters['code_bon'];
+        }
+        if (!empty($filters['receipt_status'])) {
+            if ($filters['receipt_status'] === 'with') {
+                $conditions[] = "(e.img_recu_station IS NOT NULL AND e.img_recu_station <> '')";
+            } elseif ($filters['receipt_status'] === 'pending') {
+                $conditions[] = "(e.img_recu_station IS NULL OR e.img_recu_station = '')";
+            }
+        }
+
+        $where = $conditions ? ('WHERE ' . implode(' AND ', $conditions)) : '';
+        $whereSub = $where ? preg_replace('/\be\./', 'd.', $where) : '';
+
+        $sql = "SELECT COUNT(*) AS total_count,
+                       SUM(COALESCE(e.montant,0)) AS total_montant,
+                       SUM(CASE WHEN (e.img_recu_station IS NOT NULL AND e.img_recu_station <> '') THEN 1 ELSE 0 END) AS served_count
+                FROM demande_essence e
+                JOIN (
+                    SELECT d.code_bon, MIN(d.id) AS id
+                    FROM demande_essence d
+                    $whereSub
+                    GROUP BY d.code_bon
+                ) u ON u.id = e.id";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['total_count' => 0, 'total_montant' => 0, 'served_count' => 0];
+        $total = (int)($row['total_count'] ?? 0);
+        $served = (int)($row['served_count'] ?? 0);
+        $pending = max(0, $total - $served);
+        return [
+            'total_count' => $total,
+            'total_montant' => (float)($row['total_montant'] ?? 0),
+            'served_count' => $served,
+            'pending_count' => $pending,
+        ];
+    }
+
+    /**
      * Met à jour le reçu pour un bon donné (numéro et fichier image)
      */
     public function updateReceiptByCodeBon(string $codeBon, string $numRecu, ?string $imgFileName): bool
