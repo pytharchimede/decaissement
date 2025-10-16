@@ -152,6 +152,10 @@ if ($ficheObj->insertFiche($data)) {
     ) {
         // Numéro du DG (à adapter si besoin)
         $num_dg = "0544577666"; // Numéro de téléphone du DG
+        $num_dg = "0748367710"; // Numéro de téléphone du DG
+        $num_dg = "08203010"; // Numéro de téléphone du DG
+
+
         $whatsappNumberDG = "+225" . $num_dg;
 
         // Appel à la méthode d'envoi de l'alerte au DG avec call-to-action
@@ -176,6 +180,10 @@ if ($ficheObj->insertFiche($data)) {
     ) {
         // Numéro du DG (à adapter si besoin)
         $num_dg = "0544577666"; // Numéro de téléphone du DG
+        $num_dg = "0748367710"; // Numéro de téléphone du DG
+        $num_dg = "08203010"; // Numéro de téléphone du DG
+
+
         $whatsappNumberDG = "+225" . $num_dg;
 
         // Appel à la méthode d'envoi de l'alerte URGENCE réparation

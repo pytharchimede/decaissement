@@ -159,10 +159,10 @@ $topBenefCubage = array_map(fn($r) => round($r['cubage'], 2), $topBenefList);
 $productiviteGlobal = $totalCubage > 0 ? ($totalLitres / $totalCubage) : 0; // L/m3
 $ratioCarbMontant = $totalMontantOrigine > 0 ? ($totalCarb / $totalMontantOrigine * 100) : 0;
 // Objectifs paramétrables
-$target_voyages = isset($_GET['target_voyages']) ? (int)$_GET['target_voyages'] : 135; // valeur business
-if ($target_voyages <= 0) $target_voyages = 135;
+$target_voyages = isset($_GET['target_voyages']) ? (int)$_GET['target_voyages'] : 172; // valeur business
+if ($target_voyages <= 0) $target_voyages = 172;
 $target_volume = isset($_GET['target_volume']) ? (float)str_replace(',', '.', $_GET['target_volume']) : 0.0; // m3 objectif global
-if ($target_volume <= 0) $target_volume =  3221; // exemple business
+if ($target_volume <= 0) $target_volume =  4182.1; // exemple business
 $target_carb = isset($_GET['target_carb']) ? (int)$_GET['target_carb'] : ($totalLitres > 0 && $totalVoyages > 0 ? (int)round(($totalLitres / $totalVoyages) * $target_voyages) : 0);
 function _pct($v, $t)
 {
