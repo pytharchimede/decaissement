@@ -367,6 +367,16 @@ if ($action === 'listPrestataires') {
     json_out(['ok' => true, 'data' => $rows]);
 }
 
+// ---------- Liste des opérations (étapes du projet) ----------
+if ($action === 'listOperations') {
+    try {
+        $rows = $pdo->query('SELECT id_depollution_operation AS id, lib_depollution_operation AS label FROM depollution_operation ORDER BY lib_depollution_operation')->fetchAll(PDO::FETCH_ASSOC);
+        json_out(['ok' => true, 'data' => $rows]);
+    } catch (Throwable $e) {
+        json_out(['ok' => false, 'error' => $e->getMessage()], 500);
+    }
+}
+
 // ---------- Décaissement: marquer voyage soldé/non soldé ----------
 if ($action === 'setVoyageSolde') {
     $id = (int)($_POST['id'] ?? $_GET['id'] ?? 0);
@@ -706,6 +716,19 @@ if ($action === 'createVoyageOp1') {
     } catch (Exception $e) {
         json_out(['ok' => false, 'error' => 'date_voyage invalide'], 422);
     }
+    // Récupération optionnelle de l'opération
+    $operationId = isset($payload['operation_id']) ? (int)$payload['operation_id'] : 0;
+    if ($operationId > 0) {
+        try {
+            $chk = $pdo->prepare('SELECT id_depollution_operation FROM depollution_operation WHERE id_depollution_operation=?');
+            $chk->execute([$operationId]);
+            if (!$chk->fetch()) {
+                $operationId = 0; // invalide -> ignorer
+            }
+        } catch (Throwable $e) {
+            $operationId = 0;
+        }
+    }
 
     $pdo->beginTransaction();
     try {
@@ -751,30 +774,72 @@ if ($action === 'createVoyageOp1') {
             if (!is_dir($uploadDir)) @mkdir($uploadDir, 0777, true);
             $safeName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $_FILES['bon_fichier']['name']);
             $dest = $uploadDir . '/' . time() . '_' . $safeName;
-            if (move_uploaded_file($_FILES['bon_fichier']['tmp_name'], $dest)) {
+            $tmp = $_FILES['bon_fichier']['tmp_name'];
+            $moved = false;
+            if (is_uploaded_file($tmp)) {
+                $moved = move_uploaded_file($tmp, $dest);
+            }
+            if (!$moved) {
+                // Fallback copie
+                if (@copy($tmp, $dest)) {
+                    $moved = true;
+                    @unlink($tmp);
+                }
+            }
+            if ($moved) {
                 $uploadedPath = $dest;
             }
         }
         if ($bon) {
             $bonId = (int)$bon['id'];
-            // Mise à jour du chemin fichier si une nouvelle photo a été fournie
             if ($uploadedPath) {
                 $upd = $pdo->prepare('UPDATE depollution_bon_sortie SET fichier_path=? WHERE id=?');
                 $upd->execute([$uploadedPath, $bonId]);
             }
+            // Recharger pour renvoyer le chemin après éventuelle mise à jour
+            $stp = $pdo->prepare('SELECT fichier_path FROM depollution_bon_sortie WHERE id=?');
+            $stp->execute([$bonId]);
+            $updatedBon = $stp->fetch(PDO::FETCH_ASSOC);
+            $uploadedPath = $updatedBon ? $updatedBon['fichier_path'] : $uploadedPath;
         } else {
             $st = $pdo->prepare('INSERT INTO depollution_bon_sortie (numero, fichier_path) VALUES (?,?)');
             $st->execute([$payload['bon_numero'], $uploadedPath]);
             $bonId = (int)$pdo->lastInsertId();
         }
 
-        // voyage
-        $st = $pdo->prepare('INSERT INTO depollution_voyage (date_voyage, prestataire_id, chauffeur_id, camion_id, bon_sortie_id, montant_origine, reel_recu) VALUES (?,?,?,?,?,?,?)');
+        // voyage (insertion avec operation_id si la colonne existe)
+        $hasOperationCol = true;
+        try {
+            $pdo->query('SELECT operation_id FROM depollution_voyage LIMIT 1');
+        } catch (Throwable $eOpCol) {
+            $hasOperationCol = false;
+            // Tentative ajout colonne si possible
+            try {
+                $pdo->exec('ALTER TABLE depollution_voyage ADD COLUMN operation_id INT NULL');
+                $hasOperationCol = true;
+            } catch (Throwable $eAddOp) { /* ignore */
+            }
+        }
         $reel = $montantOrigine; // frais route et carburant non encore déduits
-        $st->execute([$date, $prestId, $chauffeurId, $camionId, $bonId, $montantOrigine, $reel]);
+        if ($hasOperationCol) {
+            $st = $pdo->prepare('INSERT INTO depollution_voyage (date_voyage, prestataire_id, chauffeur_id, camion_id, bon_sortie_id, operation_id, montant_origine, reel_recu) VALUES (?,?,?,?,?,?,?,?)');
+            $st->execute([$date, $prestId, $chauffeurId, $camionId, $bonId, ($operationId > 0 ? $operationId : null), $montantOrigine, $reel]);
+        } else {
+            $st = $pdo->prepare('INSERT INTO depollution_voyage (date_voyage, prestataire_id, chauffeur_id, camion_id, bon_sortie_id, montant_origine, reel_recu) VALUES (?,?,?,?,?,?,?)');
+            $st->execute([$date, $prestId, $chauffeurId, $camionId, $bonId, $montantOrigine, $reel]);
+        }
         $voyageId = (int)$pdo->lastInsertId();
         $pdo->commit();
-        json_out(['ok' => true, 'voyage_id' => $voyageId]);
+        // Diagnostics upload fichier bon
+        $diag = [
+            'file_field_present' => isset($_FILES['bon_fichier']),
+            'file_name' => isset($_FILES['bon_fichier']['name']) ? $_FILES['bon_fichier']['name'] : null,
+            'file_size' => isset($_FILES['bon_fichier']['size']) ? (int)$_FILES['bon_fichier']['size'] : null,
+            'uploaded_tmp' => isset($_FILES['bon_fichier']['tmp_name']) ? $_FILES['bon_fichier']['tmp_name'] : null,
+            'saved_path' => $uploadedPath,
+            'bon_id' => $bonId
+        ];
+        json_out(['ok' => true, 'voyage_id' => $voyageId, 'upload_diag' => $diag]);
     } catch (Throwable $e) {
         $pdo->rollBack();
         json_out(['ok' => false, 'error' => $e->getMessage()], 400);

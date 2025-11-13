@@ -52,6 +52,7 @@ form.addEventListener("click", (e) => {
 // Charger prestataires
 const prestSel = document.getElementById("prestataireSelect");
 const montantBox = document.getElementById("montantOrigineBox");
+const opSel = document.getElementById("operationSelect");
 fetch(API + "?action=listPrestataires")
   .then((r) => r.json())
   .then((j) => {
@@ -67,6 +68,16 @@ fetch(API + "?action=listPrestataires")
             `<option data-montant="${p.montant_origine}" value="${p.nom}">${p.nom}</option>`
         )
         .join("");
+  });
+
+// Charger opérations / étapes
+fetch(API + "?action=listOperations")
+  .then((r) => r.json())
+  .then((j) => {
+    if (!j.ok) return;
+    opSel.innerHTML =
+      '<option value="">-- Étape / Opération --</option>' +
+      j.data.map((o) => `<option value="${o.id}">${o.label}</option>`).join("");
   });
 prestSel.addEventListener("change", () => {
   const opt = prestSel.selectedOptions[0];
@@ -142,6 +153,19 @@ function buildRecap() {
           }</div>`
         );
       }
+    }
+  } catch (e) {
+    /* no-op */
+  }
+
+  // Ligne récap Opération (texte de l'option sélectionnée)
+  try {
+    if (opSel && opSel.value) {
+      const label = opSel.selectedOptions[0]?.text || opSel.value;
+      recap.insertAdjacentHTML(
+        "beforeend",
+        `<div><strong>Opération:</strong> ${label}</div>`
+      );
     }
   } catch (e) {
     /* no-op */
