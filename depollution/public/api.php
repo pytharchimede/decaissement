@@ -765,29 +765,51 @@ if ($action === 'createVoyageOp1') {
         }
 
         // bon sortie
+        // Vérifier présence colonne fichier_path (compat anciennes versions)
+        try {
+            $colsBon = $pdo->query('SHOW COLUMNS FROM depollution_bon_sortie')->fetchAll(PDO::FETCH_COLUMN);
+            if ($colsBon && !in_array('fichier_path', $colsBon, true)) {
+                try {
+                    $pdo->exec('ALTER TABLE depollution_bon_sortie ADD COLUMN fichier_path VARCHAR(255) NULL');
+                } catch (Throwable $eAddCol) { /* ignore */
+                }
+            }
+        } catch (Throwable $eCols) { /* ignore */
+        }
         $st = $pdo->prepare('SELECT id FROM depollution_bon_sortie WHERE numero=?');
         $st->execute([$payload['bon_numero']]);
         $bon = $st->fetch(PDO::FETCH_ASSOC);
         $uploadedPath = null;
         if (!empty($_FILES['bon_fichier']) && $_FILES['bon_fichier']['error'] === UPLOAD_ERR_OK) {
             $uploadDir = __DIR__ . '/../storage/bons';
-            if (!is_dir($uploadDir)) @mkdir($uploadDir, 0777, true);
-            $safeName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $_FILES['bon_fichier']['name']);
-            $dest = $uploadDir . '/' . time() . '_' . $safeName;
+            $dirWritable = true;
+            if (!is_dir($uploadDir)) {
+                @mkdir($uploadDir, 0777, true);
+            }
+            if (!is_dir($uploadDir) || !is_writable($uploadDir)) {
+                $dirWritable = false;
+            }
+            $origName = $_FILES['bon_fichier']['name'];
+            $safeName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $origName);
+            $finalName = time() . '_' . $safeName;
+            $dest = $uploadDir . '/' . $finalName;
             $tmp = $_FILES['bon_fichier']['tmp_name'];
             $moved = false;
-            if (is_uploaded_file($tmp)) {
-                $moved = move_uploaded_file($tmp, $dest);
+            $isUploaded = is_uploaded_file($tmp);
+            if ($isUploaded && $dirWritable) {
+                $moved = @move_uploaded_file($tmp, $dest);
             }
             if (!$moved) {
                 // Fallback copie
-                if (@copy($tmp, $dest)) {
+                if ($dirWritable && @copy($tmp, $dest)) {
                     $moved = true;
                     @unlink($tmp);
                 }
             }
             if ($moved) {
-                $uploadedPath = $dest;
+                // Stocker chemin relatif pour portabilité
+                $uploadedPath = 'storage/bons/' . $finalName;
+                @chmod($dest, 0644);
             }
         }
         if ($bon) {
@@ -833,9 +855,12 @@ if ($action === 'createVoyageOp1') {
         // Diagnostics upload fichier bon
         $diag = [
             'file_field_present' => isset($_FILES['bon_fichier']),
+            'file_error_code' => isset($_FILES['bon_fichier']['error']) ? $_FILES['bon_fichier']['error'] : null,
             'file_name' => isset($_FILES['bon_fichier']['name']) ? $_FILES['bon_fichier']['name'] : null,
             'file_size' => isset($_FILES['bon_fichier']['size']) ? (int)$_FILES['bon_fichier']['size'] : null,
             'uploaded_tmp' => isset($_FILES['bon_fichier']['tmp_name']) ? $_FILES['bon_fichier']['tmp_name'] : null,
+            'is_uploaded' => isset($isUploaded) ? $isUploaded : null,
+            'dir_writable' => isset($dirWritable) ? $dirWritable : null,
             'saved_path' => $uploadedPath,
             'bon_id' => $bonId
         ];
