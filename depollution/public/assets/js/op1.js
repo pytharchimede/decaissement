@@ -224,6 +224,12 @@ function loadRecent() {
           const thumb = thumbUrl
             ? `<img src="${thumbUrl}" alt="bon" style="width:68px;height:48px;object-fit:cover;border-radius:6px;border:1px solid #fde68a;margin-right:.5rem;" onerror="this.remove()"/>`
             : "";
+          const bonLine = `<div class='text-[10px] text-slate-700'>Bon: <span class='font-semibold'>${
+            v.bon_numero || "-"
+          }</span></div>`;
+          const bonBadge = v.fichier_path
+            ? `<span class='inline-block bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded'>Bon présent</span>`
+            : `<span class='inline-block bg-gray-100 text-gray-700 text-[10px] px-2 py-0.5 rounded'>Bon manquant</span>`;
           const opLine = v.operation_label
             ? `<div class='text-[10px] text-slate-700 italic'>${v.operation_label}</div>`
             : "";
@@ -241,6 +247,8 @@ function loadRecent() {
                 <div class='text-[10px] text-slate-600'>${
                   v.chauffeur || ""
                 }</div>
+                  ${bonLine}
+                  <div>${bonBadge}</div>
                 ${opLine}
                 <div class='text-[10px] text-yellow-700'>${Number(
                   v.montant_origine || 0
@@ -250,6 +258,11 @@ function loadRecent() {
           </div>`;
         })
         .join("");
+      if (typeof window.applyQuickFilter === "function") {
+        try {
+          window.applyQuickFilter();
+        } catch (e) {}
+      }
     });
 }
 loadRecent();

@@ -765,6 +765,14 @@ if ($action === 'createVoyageOp1') {
         }
 
         // bon sortie
+        // Empêcher le même numéro de bon deux fois pour le même prestataire (hors voyages annulés)
+        $bonNumeroInput = isset($payload['bon_numero']) ? trim($payload['bon_numero']) : '';
+        if ($bonNumeroInput === '') throw new Exception('Numéro de bon manquant');
+        $dupChk = $pdo->prepare('SELECT v.id FROM depollution_voyage v JOIN depollution_bon_sortie b ON v.bon_sortie_id=b.id WHERE b.numero=? AND v.prestataire_id=? AND COALESCE(v.statut,"") <> "ANNULE" LIMIT 1');
+        $dupChk->execute([$bonNumeroInput, $prestId]);
+        if ($dupChk->fetch(PDO::FETCH_ASSOC)) {
+            throw new Exception('Ce numéro de bon est déjà utilisé pour ce prestataire.');
+        }
         // Vérifier présence colonne fichier_path (compat anciennes versions)
         try {
             $colsBon = $pdo->query('SHOW COLUMNS FROM depollution_bon_sortie')->fetchAll(PDO::FETCH_COLUMN);
@@ -777,7 +785,7 @@ if ($action === 'createVoyageOp1') {
         } catch (Throwable $eCols) { /* ignore */
         }
         $st = $pdo->prepare('SELECT id FROM depollution_bon_sortie WHERE numero=?');
-        $st->execute([$payload['bon_numero']]);
+        $st->execute([$bonNumeroInput]);
         $bon = $st->fetch(PDO::FETCH_ASSOC);
         $uploadedPath = null;
         if (!empty($_FILES['bon_fichier']) && $_FILES['bon_fichier']['error'] === UPLOAD_ERR_OK) {
@@ -825,7 +833,7 @@ if ($action === 'createVoyageOp1') {
             $uploadedPath = $updatedBon ? $updatedBon['fichier_path'] : $uploadedPath;
         } else {
             $st = $pdo->prepare('INSERT INTO depollution_bon_sortie (numero, fichier_path) VALUES (?,?)');
-            $st->execute([$payload['bon_numero'], $uploadedPath]);
+            $st->execute([$bonNumeroInput, $uploadedPath]);
             $bonId = (int)$pdo->lastInsertId();
         }
 

@@ -363,10 +363,16 @@ session_start();
                                 `<a href='bon_file.php?bon_id=${v.bon_id}' target='_blank' class='block mt-1 text-[10px] text-yellow-800 underline'>Voir PDF</a>` :
                                 `<img src='bon_file.php?bon_id=${v.bon_id}' alt='Bon' class='mt-1 w-full h-20 object-cover rounded border border-yellow-200' loading='lazy' />`) : '';
                             const opLabel = v.operation_label ? `<div class='text-[10px] text-slate-700 italic'>${v.operation_label}</div>` : '';
+                            const bonLine = `<div class='text-[10px] text-slate-700'>Bon: <span class='font-semibold'>${v.bon_numero||'-'}</span></div>`;
+                            const bonBadge = v.fichier_path ?
+                                `<span class='inline-block bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded'>Bon présent</span>` :
+                                `<span class='inline-block bg-gray-100 text-gray-700 text-[10px] px-2 py-0.5 rounded'>Bon manquant</span>`;
                             return `<div class='recent-card'>
                                 <div class='flex items-center justify-between'><span class='recent-badge'>#${v.id}</span><span class='font-medium text-[10px] text-yellow-800'>${v.date_voyage}</span></div>
                                 <div class='text-[11px] font-semibold text-slate-700'>${v.camion_matricule||''}</div>
                                 <div class='text-[10px] text-slate-600'>${v.chauffeur||''}</div>
+                                ${bonLine}
+                                <div>${bonBadge}</div>
                                 ${opLabel}
                                 <div class='text-[10px] text-yellow-700'>${Number(v.montant_origine||0).toLocaleString('fr-FR')} CFA</div>
                                 ${thumb}

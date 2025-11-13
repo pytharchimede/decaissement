@@ -1,10 +1,12 @@
 <?php
 // Serveur de fichiers pour les bons (photo/pdf) depuis storage/bons
-// Usage: bon_file.php?id=123
+// Usage: bon_file.php?id=123 ou bon_file.php?bon_id=123
 
 require_once __DIR__ . '/../../model/Database.php';
 
-$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$id = 0;
+if (isset($_GET['id'])) $id = (int)$_GET['id'];
+elseif (isset($_GET['bon_id'])) $id = (int)$_GET['bon_id'];
 if ($id <= 0) {
     http_response_code(400);
     echo 'Paramètre id invalide';
@@ -24,7 +26,24 @@ if (!$row || empty($row['fichier_path'])) {
 $path = $row['fichier_path'];
 // Sécurité: forcer que le chemin soit bien dans le dossier storage/bons
 $storageDir = realpath(__DIR__ . '/../storage/bons');
-$fileReal = realpath($path);
+// Résoudre correctement les chemins relatifs stockés (ex: "storage/bons/xxx")
+$fileReal = false;
+if ($path) {
+    // Si chemin absolu
+    if (preg_match('#^([a-zA-Z]:\\\\|/|\\\\)#', $path)) {
+        $fileReal = realpath($path);
+    }
+    // Essai relatif par rapport au dossier public
+    if ($fileReal === false) {
+        $cand = realpath(__DIR__ . '/' . ltrim($path, '/\\'));
+        if ($cand !== false) $fileReal = $cand;
+    }
+    // Essai relatif par rapport à la racine depollution (public/..)
+    if ($fileReal === false) {
+        $cand = realpath(__DIR__ . '/../' . ltrim($path, '/\\'));
+        if ($cand !== false) $fileReal = $cand;
+    }
+}
 if ($storageDir === false || $fileReal === false || strpos($fileReal, $storageDir) !== 0 || !is_file($fileReal)) {
     http_response_code(404);
     echo 'Fichier non accessible';

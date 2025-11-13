@@ -172,13 +172,30 @@
                 if (q && !txt.includes(q)) return;
                 visible++;
                 const active = v.id == selectedId;
+                const isPdf = String(v.fichier_path || '').toLowerCase().endsWith('.pdf');
+                const thumb = v.fichier_path ? (isPdf ?
+                        `<a href="bon_file.php?bon_id=${h(v.bon_id)}" target="_blank" class="block mt-1 text-[10px] text-yellow-800 underline">Voir PDF</a>` :
+                        `<img src="bon_file.php?bon_id=${h(v.bon_id)}" alt="Bon" style="width:72px;height:52px;object-fit:cover;border-radius:6px;border:1px solid #fde68a;margin-right:.5rem;" onerror="this.remove()"/>`) :
+                    '';
+                const bonLine = `<div class='text-[10px] text-slate-700'>Bon: <span class='font-semibold'>${h(v.bon_numero)||'-'}</span></div>`;
+                const bonBadge = v.fichier_path ?
+                    `<span class='inline-block bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded'>Bon présent</span>` :
+                    `<span class='inline-block bg-gray-100 text-gray-700 text-[10px] px-2 py-0.5 rounded'>Bon manquant</span>`;
+                const opLine = v.operation_label ? `<div class='text-[10px] text-slate-700 italic'>${h(v.operation_label)}</div>` : '';
                 html += `<div class='voy-card ${active?'active':''}' data-id='${h(v.id)}'>
                     <div class='flex items-center justify-between'><span class='badge-sm'>#${h(v.id)}</span><span class='text-[10px] text-yellow-800 font-medium'>${h(v.date_voyage)}</span></div>
-                    <div class='text-[11px] font-semibold text-slate-700'>${h(v.camion_matricule)||''}</div>
-                    <div class='text-[10px] text-slate-600'>${h(v.chauffeur)||''}</div>
-                    <div class='text-[10px] text-amber-600'>Prest: ${h(v.prestataire)||''}</div>
-                    <div class='text-[10px] text-yellow-700'>Orig: ${Number(v.montant_origine||0).toLocaleString('fr-FR')} CFA</div>
-                    <div class='text-[10px] text-slate-500'>Frais: ${Number(v.frais_route||0).toLocaleString('fr-FR')} | Carb: ${Number(v.carburant_montant||0).toLocaleString('fr-FR')}</div>
+                    <div class='flex items-start gap-2'>${thumb}
+                        <div>
+                            <div class='text-[11px] font-semibold text-slate-700'>${h(v.camion_matricule)||''}</div>
+                            <div class='text-[10px] text-slate-600'>${h(v.chauffeur)||''}</div>
+                            ${opLine}
+                            ${bonLine}
+                            <div>${bonBadge}</div>
+                            <div class='text-[10px] text-amber-600'>Prest: ${h(v.prestataire)||''}</div>
+                            <div class='text-[10px] text-yellow-700'>Orig: ${Number(v.montant_origine||0).toLocaleString('fr-FR')} CFA</div>
+                            <div class='text-[10px] text-slate-500'>Frais: ${Number(v.frais_route||0).toLocaleString('fr-FR')} | Carb: ${Number(v.carburant_montant||0).toLocaleString('fr-FR')}</div>
+                        </div>
+                    </div>
                 </div>`;
             });
             cardsWrap.innerHTML = html;

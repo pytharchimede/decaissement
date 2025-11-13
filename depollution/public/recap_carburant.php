@@ -100,7 +100,7 @@ if (!$includeCanceled) {
 $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
 
 // Récupération voyages (statut SAISI ou CLOS)
-$sql = "SELECT v.*, p.nom AS prestataire, c.matricule, ch.nom AS chauffeur, ch.telephone, b.numero AS bon" .
+$sql = "SELECT v.*, p.nom AS prestataire, c.matricule, ch.nom AS chauffeur, ch.telephone, b.id AS bon_id, b.numero AS bon, b.fichier_path AS bon_path" .
     $selectOpLabel . "\n    FROM depollution_voyage v\n    LEFT JOIN depollution_prestataire p ON p.id=v.prestataire_id\n    LEFT JOIN depollution_camion c ON c.id=v.camion_id\n    LEFT JOIN depollution_chauffeur ch ON ch.id=v.chauffeur_id\n    LEFT JOIN depollution_bon_sortie b ON b.id=v.bon_sortie_id" .
     $joinOperation . "\n    $whereSql\n    ORDER BY v.date_voyage ASC, v.id ASC";
 $st = $pdo->prepare($sql);
@@ -667,7 +667,20 @@ $targetVolumeFmt = number_format($target_volume, 1, ',', ' ');
                                     <td><?= htmlspecialchars($v['chauffeur'] ?? '') ?></td>
                                     <td><?= htmlspecialchars($v['telephone'] ?? '') ?></td>
                                     <td><?= htmlspecialchars($v['matricule'] ?? '') ?></td>
-                                    <td><?= htmlspecialchars($v['bon'] ?? '') ?></td>
+                                    <td>
+                                        <?php
+                                        $num = isset($v['bon']) ? $v['bon'] : '';
+                                        $hasFile = !empty($v['bon_path']);
+                                        $bonId = isset($v['bon_id']) ? (int)$v['bon_id'] : 0;
+                                        echo htmlspecialchars($num);
+                                        if ($bonId && $hasFile) {
+                                            echo ' <a href="bon_file.php?id=' . $bonId . '" target="_blank" class="underline text-yellow-700 text-[10px]">Voir</a>';
+                                            echo ' <span class="inline-block bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded">Présent</span>';
+                                        } elseif ($num !== '') {
+                                            echo ' <span class="inline-block bg-gray-100 text-gray-700 text-[10px] px-1.5 py-0.5 rounded">Manquant</span>';
+                                        }
+                                        ?>
+                                    </td>
                                     <td>
                                         <?php $isSold = !empty($v['solde']);
                                         $btnCls = $isSold ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700';
