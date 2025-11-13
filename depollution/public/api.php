@@ -745,19 +745,26 @@ if ($action === 'createVoyageOp1') {
         $st = $pdo->prepare('SELECT id FROM depollution_bon_sortie WHERE numero=?');
         $st->execute([$payload['bon_numero']]);
         $bon = $st->fetch(PDO::FETCH_ASSOC);
+        $uploadedPath = null;
+        if (!empty($_FILES['bon_fichier']) && $_FILES['bon_fichier']['error'] === UPLOAD_ERR_OK) {
+            $uploadDir = __DIR__ . '/../storage/bons';
+            if (!is_dir($uploadDir)) @mkdir($uploadDir, 0777, true);
+            $safeName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $_FILES['bon_fichier']['name']);
+            $dest = $uploadDir . '/' . time() . '_' . $safeName;
+            if (move_uploaded_file($_FILES['bon_fichier']['tmp_name'], $dest)) {
+                $uploadedPath = $dest;
+            }
+        }
         if ($bon) {
             $bonId = (int)$bon['id'];
-        } else {
-            $fichierPath = null;
-            if (!empty($_FILES['bon_fichier']) && $_FILES['bon_fichier']['error'] === UPLOAD_ERR_OK) {
-                $uploadDir = __DIR__ . '/../storage/bons';
-                if (!is_dir($uploadDir)) @mkdir($uploadDir, 0777, true);
-                $dest = $uploadDir . '/' . time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $_FILES['bon_fichier']['name']);
-                move_uploaded_file($_FILES['bon_fichier']['tmp_name'], $dest);
-                $fichierPath = $dest;
+            // Mise à jour du chemin fichier si une nouvelle photo a été fournie
+            if ($uploadedPath) {
+                $upd = $pdo->prepare('UPDATE depollution_bon_sortie SET fichier_path=? WHERE id=?');
+                $upd->execute([$uploadedPath, $bonId]);
             }
+        } else {
             $st = $pdo->prepare('INSERT INTO depollution_bon_sortie (numero, fichier_path) VALUES (?,?)');
-            $st->execute([$payload['bon_numero'], $fichierPath]);
+            $st->execute([$payload['bon_numero'], $uploadedPath]);
             $bonId = (int)$pdo->lastInsertId();
         }
 
@@ -1142,7 +1149,7 @@ if ($action === 'listVoyages') {
     if ($statut) $clauses[] = 'v.statut = :statut';
     if (!$includeCanceled) $clauses[] = "v.statut <> 'ANNULE'";
     $where = $clauses ? ('WHERE ' . implode(' AND ', $clauses)) : '';
-    $sql = "SELECT v.*, p.nom prestataire, c.matricule, ch.nom chauffeur, ch.telephone, b.numero bon_numero
+    $sql = "SELECT v.*, p.nom prestataire, c.matricule, ch.nom chauffeur, ch.telephone, b.id AS bon_id, b.numero bon_numero, b.fichier_path
             FROM depollution_voyage v
             JOIN depollution_prestataire p ON v.prestataire_id=p.id
             JOIN depollution_camion c ON v.camion_id=c.id

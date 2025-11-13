@@ -112,6 +112,40 @@ function buildRecap() {
         }</div>`
     )
     .join("");
+
+  // Ajouter vignette/lien du fichier bon si présent
+  try {
+    const f = bonInput && bonInput.files ? bonInput.files[0] : null;
+    if (f) {
+      if (f.type && f.type.startsWith("image/")) {
+        const url = URL.createObjectURL(f);
+        recap.insertAdjacentHTML(
+          "beforeend",
+          `<div class="mt-2"><div><strong>Bon (aperçu):</strong></div>
+            <img src="${url}" alt="aperçu bon" style="max-width:160px;max-height:120px;border-radius:6px;border:1px solid #fde68a" onload="URL.revokeObjectURL(this.src)"/>
+          </div>`
+        );
+      } else if (
+        (f.type && f.type === "application/pdf") ||
+        /\.pdf$/i.test(f.name || "")
+      ) {
+        const url = URL.createObjectURL(f);
+        recap.insertAdjacentHTML(
+          "beforeend",
+          `<div class="mt-2"><strong>Bon (PDF):</strong> <a href="${url}" target="_blank" rel="noopener">Ouvrir le PDF</a></div>`
+        );
+      } else {
+        recap.insertAdjacentHTML(
+          "beforeend",
+          `<div class="mt-2"><strong>Bon (fichier):</strong> ${
+            f.name || "fichier joint"
+          }</div>`
+        );
+      }
+    }
+  } catch (e) {
+    /* no-op */
+  }
 }
 
 // Soumission
@@ -148,14 +182,34 @@ function loadRecent() {
       if (!j.ok) return;
       const wrap = document.getElementById("recentVoyages");
       wrap.innerHTML = j.data
-        .map(
-          (v) =>
-            `<div class='card-small'><div><span class='badge'>#${v.id}</span> ${
-              v.date_voyage
-            } ${v.camion_matricule}</div><div>${v.chauffeur} – ${Number(
-              v.montant_origine
-            ).toLocaleString("fr-FR")} CFA</div></div>`
-        )
+        .map((v) => {
+          const thumbUrl = v.bon_id
+            ? API.replace("api.php", "bon_file.php") + `?id=${v.bon_id}`
+            : null;
+          const thumb = thumbUrl
+            ? `<img src="${thumbUrl}" alt="bon" style="width:68px;height:48px;object-fit:cover;border-radius:6px;border:1px solid #fde68a;margin-right:.5rem;" onerror="this.remove()"/>`
+            : "";
+          return `<div class='recent-card'>
+            <div class='flex items-center justify-between'><span class='recent-badge'>#${
+              v.id
+            }</span><span class='font-medium text-[10px] text-yellow-800'>${
+            v.date_voyage || ""
+          }</span></div>
+            <div class='flex items-start'>${thumb}
+              <div>
+                <div class='text-[11px] font-semibold text-slate-700'>${
+                  v.camion_matricule || ""
+                }</div>
+                <div class='text-[10px] text-slate-600'>${
+                  v.chauffeur || ""
+                }</div>
+                <div class='text-[10px] text-yellow-700'>${Number(
+                  v.montant_origine || 0
+                ).toLocaleString("fr-FR")} CFA</div>
+              </div>
+            </div>
+          </div>`;
+        })
         .join("");
     });
 }

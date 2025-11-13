@@ -22,6 +22,10 @@ if ($date_fin) {
 $prestataire_filters = isset($_GET['prestataire']) ? (array)$_GET['prestataire'] : [];
 $chauffeur_filter = $_GET['chauffeur'] ?? '';
 $camion_filter = $_GET['camion'] ?? '';
+$operation_filter = $_GET['operation'] ?? '';
+// Join optionnel pour l'opération (filtre par libellé)
+$joinOperation = '';
+
 $solde_filter = isset($_GET['solde']) ? $_GET['solde'] : '';
 if ($prestataire_filters) {
     $inParts = [];
@@ -40,6 +44,13 @@ if ($camion_filter !== '') {
     $where[] = 'c.matricule = :camion_mat';
     $params[':camion_mat'] = $camion_filter;
 }
+if ($operation_filter !== '') {
+    // Joindre la table des opérations et filtrer sur le libellé (valeur transmise depuis le sélecteur)
+    // On couvre plusieurs variantes possibles du nom de clé étrangère dans depollution_voyage
+    $joinOperation = "\n        LEFT JOIN depollution_operation o ON (o.id_depollution_operation = v.id_depollution_operation OR o.id_depollution_operation = v.operation_id OR o.id_depollution_operation = v.depollution_operation_id)";
+    $where[] = 'o.lib_depollution_operation = :operation';
+    $params[':operation'] = $operation_filter;
+}
 if ($solde_filter === '1') {
     $where[] = 'v.solde = 1';
 } elseif ($solde_filter === '0') {
@@ -54,13 +65,14 @@ $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
 
 // Récupération voyages (statut SAISI ou CLOS)
 $sql = "SELECT v.*, p.nom AS prestataire, c.matricule, ch.nom AS chauffeur, ch.telephone, b.numero AS bon
-        FROM depollution_voyage v
-        LEFT JOIN depollution_prestataire p ON p.id=v.prestataire_id
-        LEFT JOIN depollution_camion c ON c.id=v.camion_id
-        LEFT JOIN depollution_chauffeur ch ON ch.id=v.chauffeur_id
-        LEFT JOIN depollution_bon_sortie b ON b.id=v.bon_sortie_id
-        $whereSql
-        ORDER BY v.date_voyage ASC, v.id ASC";
+    FROM depollution_voyage v
+    LEFT JOIN depollution_prestataire p ON p.id=v.prestataire_id
+    LEFT JOIN depollution_camion c ON c.id=v.camion_id
+    LEFT JOIN depollution_chauffeur ch ON ch.id=v.chauffeur_id
+    LEFT JOIN depollution_bon_sortie b ON b.id=v.bon_sortie_id" .
+    $joinOperation . "
+    $whereSql
+    ORDER BY v.date_voyage ASC, v.id ASC";
 $st = $pdo->prepare($sql);
 $st->execute($params);
 $voyages = $st->fetchAll(PDO::FETCH_ASSOC);
@@ -113,13 +125,27 @@ foreach ($voyages as $v) {
 }
 ksort($byDate);
 $labels = array_keys($byDate);
-$serieMontant = array_map(fn($d) => $d['montant'], $byDate);
-$serieCarb = array_map(fn($d) => $d['carb'], $byDate);
-$serieReel = array_map(fn($d) => $d['reel'], $byDate);
-$serieVoy = array_map(fn($d) => $d['voy'], $byDate);
-$serieLitre = array_map(fn($d) => $d['litre'], $byDate);
-$seriePrixLitre = array_map(fn($d) => $d['litre'] > 0 ? round($d['carb'] / $d['litre'], 2) : 0, $byDate);
-$serieCubage = array_map(fn($d) => $d['cubage'], $byDate);
+$serieMontant = array_map(function ($d) {
+    return isset($d['montant']) ? $d['montant'] : 0;
+}, $byDate);
+$serieCarb = array_map(function ($d) {
+    return isset($d['carb']) ? $d['carb'] : 0;
+}, $byDate);
+$serieReel = array_map(function ($d) {
+    return isset($d['reel']) ? $d['reel'] : 0;
+}, $byDate);
+$serieVoy = array_map(function ($d) {
+    return isset($d['voy']) ? $d['voy'] : 0;
+}, $byDate);
+$serieLitre = array_map(function ($d) {
+    return isset($d['litre']) ? $d['litre'] : 0;
+}, $byDate);
+$seriePrixLitre = array_map(function ($d) {
+    return (isset($d['litre']) && $d['litre'] > 0) ? round($d['carb'] / $d['litre'], 2) : 0;
+}, $byDate);
+$serieCubage = array_map(function ($d) {
+    return isset($d['cubage']) ? $d['cubage'] : 0;
+}, $byDate);
 
 // Agrégats par prestataire + Top bénéficiaires (cubage)
 $byPrest = [];
@@ -151,10 +177,15 @@ $topBenefList = [];
 foreach ($byPrest as $name => $vals) {
     $topBenefList[] = ['name' => $name] + $vals;
 }
-usort($topBenefList, fn($a, $b) => $b['cubage'] <=> $a['cubage']);
+usort($topBenefList, function ($a, $b) {
+    if ($a['cubage'] == $b['cubage']) return 0;
+    return ($a['cubage'] < $b['cubage']) ? 1 : -1;
+});
 $topBenefList = array_slice($topBenefList, 0, 5);
 $topBenefLabels = array_column($topBenefList, 'name');
-$topBenefCubage = array_map(fn($r) => round($r['cubage'], 2), $topBenefList);
+$topBenefCubage = array_map(function ($r) {
+    return round($r['cubage'], 2);
+}, $topBenefList);
 // Productivité & ratios globaux
 $productiviteGlobal = $totalCubage > 0 ? ($totalLitres / $totalCubage) : 0; // L/m3
 $ratioCarbMontant = $totalMontantOrigine > 0 ? ($totalCarb / $totalMontantOrigine * 100) : 0;
@@ -357,10 +388,12 @@ $targetVolumeFmt = number_format($target_volume, 1, ',', ' ');
         $prestataire_filter = $_GET['prestataire'] ?? '';
         $chauffeur_filter = $_GET['chauffeur'] ?? '';
         $camion_filter = $_GET['camion'] ?? '';
+        $operation_filter = $_GET['operation'] ?? '';
         // Pour les listes déroulantes (on charge toutes les valeurs distinctes)
         $prestataires = $pdo->query("SELECT DISTINCT nom FROM depollution_prestataire ORDER BY nom")->fetchAll(PDO::FETCH_COLUMN);
         $chauffeurs = $pdo->query("SELECT DISTINCT nom FROM depollution_chauffeur ORDER BY nom")->fetchAll(PDO::FETCH_COLUMN);
         $camions = $pdo->query("SELECT DISTINCT matricule FROM depollution_camion ORDER BY matricule")->fetchAll(PDO::FETCH_COLUMN);
+        $operations = $pdo->query("SELECT DISTINCT lib_depollution_operation FROM depollution_operation ORDER BY lib_depollution_operation")->fetchAll(PDO::FETCH_COLUMN);
         ?>
 
         <div class="max-w-6xl mx-auto">
@@ -413,6 +446,15 @@ $targetVolumeFmt = number_format($target_volume, 1, ',', ' ');
                                 <option value="">Tous</option>
                                 <?php foreach ($chauffeurs as $cNom): ?>
                                     <option value="<?= htmlspecialchars($cNom) ?>" <?= $chauffeur_filter === $cNom ? 'selected' : '' ?>><?= htmlspecialchars($cNom) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold mb-1">Opération</label>
+                            <select name="operation" class="border rounded px-2 py-1 text-xs w-full">
+                                <option value="">Tous</option>
+                                <?php foreach ($operations as $operation): ?>
+                                    <option value="<?= htmlspecialchars($operation) ?>" <?= $operation_filter === $operation ? 'selected' : '' ?>><?= htmlspecialchars($operation) ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
@@ -504,610 +546,610 @@ $targetVolumeFmt = number_format($target_volume, 1, ',', ' ');
                     <div class="text-xs text-gray-500">Montant Origine</div>
                     <div class="text-lg font-bold text-yellow-700"><?= number_format($totalMontantOrigine, 0, ',', ' ') ?></div>
                 </div>
-                <div class="
-                    <div class=" text-xs text-gray-500">Frais Route</div>
-                <div class="text-lg font-bold text-yellow-700"><?= number_format($totalFrais, 0, ',', ' ') ?></div>
-            </div>
-            <div class="stat-box">
-                <div class="text-xs text-gray-500">Carburant</div>
-                <div class="text-lg font-bold text-yellow-700"><?= number_format($totalCarb, 0, ',', ' ') ?></div>
-            </div>
-            <div class="stat-box">
-                <div class="text-xs text-gray-500">Litres</div>
-                <div class="text-lg font-bold text-yellow-700"><?= number_format($totalLitres, 0, ',', ' ') ?></div>
-            </div>
-            <div class="stat-box">
-                <div class="text-xs text-gray-500">Prix/Litre</div>
-                <div class="text-lg font-bold text-yellow-700"><?= number_format($prixLitre, 0, ',', ' ') ?></div>
-            </div>
-            <div class="stat-box">
-                <div class="text-xs text-gray-500">Réel Reçu</div>
-                <div class="text-lg font-bold text-yellow-700"><?= number_format($totalReel, 0, ',', ' ') ?></div>
-            </div>
-            <div class="stat-box">
-                <div class="text-xs text-gray-500">Prod. L/m³</div>
-                <div class="text-lg font-bold text-yellow-700"><?= number_format($productiviteGlobal, 2, ',', ' ') ?></div>
-            </div>
-            <div class="stat-box">
-                <div class="text-xs text-gray-500">Carb/Mont (%)</div>
-                <div class="text-lg font-bold text-yellow-700"><?= number_format($ratioCarbMontant, 1, ',', ' ') ?></div>
-            </div>
-            <div class="stat-box">
-                <div class="text-xs text-gray-500">Soldés (nb)</div>
-                <div class="text-lg font-bold text-yellow-700"><?= number_format($soldCount, 0, ',', ' ') ?></div>
-            </div>
-            <div class="stat-box">
-                <div class="text-xs text-gray-500">Non soldés (nb)</div>
-                <div class="text-lg font-bold text-yellow-700"><?= number_format($unsoldCount, 0, ',', ' ') ?></div>
-            </div>
-        </div>
-        <div class="bg-white rounded-xl shadow card p-4 mb-6">
-            <?php if (count($labels) > 0): ?>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                    <div>
-                        <h3 class="text-xs font-semibold mb-2">Montants / Carburant / Réel</h3>
-                        <canvas id="chartMontant" height="140"></canvas>
-                    </div>
-                    <div>
-                        <h3 class="text-xs font-semibold mb-2">Voyages & Litres</h3>
-                        <canvas id="chartVoy" height="140"></canvas>
-                    </div>
-                    <div>
-                        <h3 class="text-xs font-semibold mb-2">Cubage quotidien</h3>
-                        <canvas id="chartCubage" height="140"></canvas>
-                    </div>
+                <div class="stat-box">
+                    <div class="text-xs text-gray-500">Frais Route</div>
+                    <div class="text-lg font-bold text-yellow-700"><?= number_format($totalFrais, 0, ',', ' ') ?></div>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                    <div>
-                        <h3 class="text-xs font-semibold mb-2">Top bénéficiaires (Cubage)</h3>
-                        <canvas id="chartTopBenef" height="140"></canvas>
-                    </div>
-                    <div class="hidden md:block"></div>
-                    <div class="hidden md:block"></div>
+                <div class="stat-box">
+                    <div class="text-xs text-gray-500">Carburant</div>
+                    <div class="text-lg font-bold text-yellow-700"><?= number_format($totalCarb, 0, ',', ' ') ?></div>
                 </div>
-            <?php endif; ?>
-            <div class="text-sm font-semibold mb-2">Liste des voyages</div>
-            <div class="overflow-auto" style="max-height:480px;">
-                <table id="tableVoyages" class="min-w-full border">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Prestataire</th>
-                            <th>Chauffeur</th>
-                            <th>Tel</th>
-                            <th>Camion</th>
-                            <th>Bon</th>
-                            <th>Solde</th>
-                            <th>Nb</th>
-                            <th>Cubage</th>
-                            <th>Montant Orig</th>
-                            <th>Frais</th>
-                            <th>Carb</th>
-                            <th>Litre</th>
-                            <th>Réel</th>
-                        </tr>
-                    </thead>
-                    <tbody id="voyagesBody" data-total="<?= $totalVoyages ?>" data-initial="<?= count($initialRows) ?>">
-                        <?php foreach ($initialRows as $v): ?>
-                            <tr class="border-b">
-                                <td><?= htmlspecialchars($v['date_voyage']) ?></td>
-                                <td><?= htmlspecialchars($v['prestataire'] ?? '') ?></td>
-                                <td><?= htmlspecialchars($v['chauffeur'] ?? '') ?></td>
-                                <td><?= htmlspecialchars($v['telephone'] ?? '') ?></td>
-                                <td><?= htmlspecialchars($v['matricule'] ?? '') ?></td>
-                                <td><?= htmlspecialchars($v['bon'] ?? '') ?></td>
-                                <td>
-                                    <?php $isSold = !empty($v['solde']);
-                                    $btnCls = $isSold ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700';
-                                    $label = $isSold ? 'Soldé' : 'Non soldé'; ?>
-                                    <button type="button" class="btn-solde px-2 py-0.5 rounded text-xs <?= $btnCls ?>" data-id="<?= (int)$v['id'] ?>" data-solde="<?= $isSold ? 1 : 0 ?>" title="Basculer l\'état de décaissement"><?= $label ?></button>
-                                </td>
-                                <td class="text-right"><?= (int)$v['nombre_voyage'] ?></td>
-                                <td class="text-right"><?= number_format($v['cubage'], 2, ',', ' ') ?></td>
-                                <td class="text-right"><?= number_format($v['montant_origine'], 0, ',', ' ') ?></td>
-                                <td class="text-right"><?= number_format($v['frais_route'], 0, ',', ' ') ?></td>
-                                <td class="text-right"><?= number_format($v['carburant_montant'], 0, ',', ' ') ?></td>
-                                <td class="text-right"><?= number_format($v['carburant_litre'], 0, ',', ' ') ?></td>
-                                <td class="text-right"><?= number_format($v['reel_recu'], 0, ',', ' ') ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+                <div class="stat-box">
+                    <div class="text-xs text-gray-500">Litres</div>
+                    <div class="text-lg font-bold text-yellow-700"><?= number_format($totalLitres, 0, ',', ' ') ?></div>
+                </div>
+                <div class="stat-box">
+                    <div class="text-xs text-gray-500">Prix/Litre</div>
+                    <div class="text-lg font-bold text-yellow-700"><?= number_format($prixLitre, 0, ',', ' ') ?></div>
+                </div>
+                <div class="stat-box">
+                    <div class="text-xs text-gray-500">Réel Reçu</div>
+                    <div class="text-lg font-bold text-yellow-700"><?= number_format($totalReel, 0, ',', ' ') ?></div>
+                </div>
+                <div class="stat-box">
+                    <div class="text-xs text-gray-500">Prod. L/m³</div>
+                    <div class="text-lg font-bold text-yellow-700"><?= number_format($productiviteGlobal, 2, ',', ' ') ?></div>
+                </div>
+                <div class="stat-box">
+                    <div class="text-xs text-gray-500">Carb/Mont (%)</div>
+                    <div class="text-lg font-bold text-yellow-700"><?= number_format($ratioCarbMontant, 1, ',', ' ') ?></div>
+                </div>
+                <div class="stat-box">
+                    <div class="text-xs text-gray-500">Soldés (nb)</div>
+                    <div class="text-lg font-bold text-yellow-700"><?= number_format($soldCount, 0, ',', ' ') ?></div>
+                </div>
+                <div class="stat-box">
+                    <div class="text-xs text-gray-500">Non soldés (nb)</div>
+                    <div class="text-lg font-bold text-yellow-700"><?= number_format($unsoldCount, 0, ',', ' ') ?></div>
+                </div>
             </div>
-            <div class="mt-6">
-                <div class="text-sm font-semibold mb-2">Agrégats par prestataire</div>
-                <div class="overflow-auto" style="max-height:300px;">
-                    <table id="tablePrest" class="min-w-full border">
+            <div class="bg-white rounded-xl shadow card p-4 mb-6">
+                <?php if (count($labels) > 0): ?>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                        <div>
+                            <h3 class="text-xs font-semibold mb-2">Montants / Carburant / Réel</h3>
+                            <canvas id="chartMontant" height="140"></canvas>
+                        </div>
+                        <div>
+                            <h3 class="text-xs font-semibold mb-2">Voyages & Litres</h3>
+                            <canvas id="chartVoy" height="140"></canvas>
+                        </div>
+                        <div>
+                            <h3 class="text-xs font-semibold mb-2">Cubage quotidien</h3>
+                            <canvas id="chartCubage" height="140"></canvas>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                        <div>
+                            <h3 class="text-xs font-semibold mb-2">Top bénéficiaires (Cubage)</h3>
+                            <canvas id="chartTopBenef" height="140"></canvas>
+                        </div>
+                        <div class="hidden md:block"></div>
+                        <div class="hidden md:block"></div>
+                    </div>
+                <?php endif; ?>
+                <div class="text-sm font-semibold mb-2">Liste des voyages</div>
+                <div class="overflow-auto" style="max-height:480px;">
+                    <table id="tableVoyages" class="min-w-full border">
                         <thead>
                             <tr>
+                                <th>Date</th>
                                 <th>Prestataire</th>
-                                <th>Voyages</th>
-                                <th>Nb (saisi)</th>
+                                <th>Chauffeur</th>
+                                <th>Tel</th>
+                                <th>Camion</th>
+                                <th>Bon</th>
+                                <th>Solde</th>
+                                <th>Nb</th>
                                 <th>Cubage</th>
                                 <th>Montant Orig</th>
                                 <th>Frais</th>
                                 <th>Carb</th>
-                                <th>Litres</th>
-                                <th>Prix/L</th>
-                                <th>L/m³</th>
-                                <th>%Carb/Mont</th>
+                                <th>Litre</th>
                                 <th>Réel</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <?php foreach ($byPrest as $pr => $ag): $prixL = $ag['litre'] > 0 ? $ag['carb'] / $ag['litre'] : 0;
-                                $lm3 = $ag['cubage'] > 0 ? ($ag['litre'] / $ag['cubage']) : 0;
-                                $ratioPct = $ag['montant'] > 0 ? ($ag['carb'] / $ag['montant'] * 100) : 0; ?>
+                        <tbody id="voyagesBody" data-total="<?= $totalVoyages ?>" data-initial="<?= count($initialRows) ?>">
+                            <?php foreach ($initialRows as $v): ?>
                                 <tr class="border-b">
-                                    <td><?= htmlspecialchars($pr) ?></td>
-                                    <td class="text-right"><?= $ag['voyages'] ?></td>
-                                    <td class="text-right"><?= $ag['nb_saisi'] ?></td>
-                                    <td class="text-right"><?= number_format($ag['cubage'], 2, ',', ' ') ?></td>
-                                    <td class="text-right"><?= number_format($ag['montant'], 0, ',', ' ') ?></td>
-                                    <td class="text-right"><?= number_format($ag['frais'], 0, ',', ' ') ?></td>
-                                    <td class="text-right"><?= number_format($ag['carb'], 0, ',', ' ') ?></td>
-                                    <td class="text-right"><?= number_format($ag['litre'], 0, ',', ' ') ?></td>
-                                    <td class="text-right"><?= number_format($prixL, 0, ',', ' ') ?></td>
-                                    <td class="text-right"><?= number_format($lm3, 2, ',', ' ') ?></td>
-                                    <td class="text-right"><?= number_format($ratioPct, 1, ',', ' ') ?></td>
-                                    <td class="text-right"><?= number_format($ag['reel'], 0, ',', ' ') ?></td>
+                                    <td><?= htmlspecialchars($v['date_voyage']) ?></td>
+                                    <td><?= htmlspecialchars($v['prestataire'] ?? '') ?></td>
+                                    <td><?= htmlspecialchars($v['chauffeur'] ?? '') ?></td>
+                                    <td><?= htmlspecialchars($v['telephone'] ?? '') ?></td>
+                                    <td><?= htmlspecialchars($v['matricule'] ?? '') ?></td>
+                                    <td><?= htmlspecialchars($v['bon'] ?? '') ?></td>
+                                    <td>
+                                        <?php $isSold = !empty($v['solde']);
+                                        $btnCls = $isSold ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700';
+                                        $label = $isSold ? 'Soldé' : 'Non soldé'; ?>
+                                        <button type="button" class="btn-solde px-2 py-0.5 rounded text-xs <?= $btnCls ?>" data-id="<?= (int)$v['id'] ?>" data-solde="<?= $isSold ? 1 : 0 ?>" title="Basculer l\'état de décaissement"><?= $label ?></button>
+                                    </td>
+                                    <td class="text-right"><?= (int)$v['nombre_voyage'] ?></td>
+                                    <td class="text-right"><?= number_format($v['cubage'], 2, ',', ' ') ?></td>
+                                    <td class="text-right"><?= number_format($v['montant_origine'], 0, ',', ' ') ?></td>
+                                    <td class="text-right"><?= number_format($v['frais_route'], 0, ',', ' ') ?></td>
+                                    <td class="text-right"><?= number_format($v['carburant_montant'], 0, ',', ' ') ?></td>
+                                    <td class="text-right"><?= number_format($v['carburant_litre'], 0, ',', ' ') ?></td>
+                                    <td class="text-right"><?= number_format($v['reel_recu'], 0, ',', ' ') ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
                     </table>
                 </div>
+                <div class="mt-6">
+                    <div class="text-sm font-semibold mb-2">Agrégats par prestataire</div>
+                    <div class="overflow-auto" style="max-height:300px;">
+                        <table id="tablePrest" class="min-w-full border">
+                            <thead>
+                                <tr>
+                                    <th>Prestataire</th>
+                                    <th>Voyages</th>
+                                    <th>Nb (saisi)</th>
+                                    <th>Cubage</th>
+                                    <th>Montant Orig</th>
+                                    <th>Frais</th>
+                                    <th>Carb</th>
+                                    <th>Litres</th>
+                                    <th>Prix/L</th>
+                                    <th>L/m³</th>
+                                    <th>%Carb/Mont</th>
+                                    <th>Réel</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($byPrest as $pr => $ag): $prixL = $ag['litre'] > 0 ? $ag['carb'] / $ag['litre'] : 0;
+                                    $lm3 = $ag['cubage'] > 0 ? ($ag['litre'] / $ag['cubage']) : 0;
+                                    $ratioPct = $ag['montant'] > 0 ? ($ag['carb'] / $ag['montant'] * 100) : 0; ?>
+                                    <tr class="border-b">
+                                        <td><?= htmlspecialchars($pr) ?></td>
+                                        <td class="text-right"><?= $ag['voyages'] ?></td>
+                                        <td class="text-right"><?= $ag['nb_saisi'] ?></td>
+                                        <td class="text-right"><?= number_format($ag['cubage'], 2, ',', ' ') ?></td>
+                                        <td class="text-right"><?= number_format($ag['montant'], 0, ',', ' ') ?></td>
+                                        <td class="text-right"><?= number_format($ag['frais'], 0, ',', ' ') ?></td>
+                                        <td class="text-right"><?= number_format($ag['carb'], 0, ',', ' ') ?></td>
+                                        <td class="text-right"><?= number_format($ag['litre'], 0, ',', ' ') ?></td>
+                                        <td class="text-right"><?= number_format($prixL, 0, ',', ' ') ?></td>
+                                        <td class="text-right"><?= number_format($lm3, 2, ',', ' ') ?></td>
+                                        <td class="text-right"><?= number_format($ratioPct, 1, ',', ' ') ?></td>
+                                        <td class="text-right"><?= number_format($ag['reel'], 0, ',', ' ') ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
-    <script>
-        // Initialisation des sélecteurs modernes (Choices.js) + logique page
-        document.addEventListener('DOMContentLoaded', function() {
-            const prestSel = document.querySelector('select[name="prestataire[]"]');
-            if (prestSel) {
-                new Choices(prestSel, {
-                    removeItemButton: true,
-                    placeholder: true,
-                    placeholderValue: 'Prestataire(s)',
-                    searchPlaceholderValue: 'Rechercher…',
-                    shouldSort: true,
-                    allowHTML: false,
-                    duplicateItemsAllowed: false
-                });
-            }
-            const chSel = document.querySelector('select[name="chauffeur"]');
-            if (chSel) {
-                new Choices(chSel, {
-                    placeholder: true,
-                    placeholderValue: 'Chauffeur',
-                    searchEnabled: true,
-                    searchPlaceholderValue: 'Rechercher chauffeur…',
-                    allowHTML: false,
-                    shouldSort: true
-                });
-            }
-            const camSel = document.querySelector('select[name="camion"]');
-            if (camSel) {
-                new Choices(camSel, {
-                    placeholder: true,
-                    placeholderValue: 'Camion',
-                    searchEnabled: true,
-                    searchPlaceholderValue: 'Rechercher camion…',
-                    allowHTML: false,
-                    shouldSort: true
-                });
-            }
-        });
-        // Export PDF avec intégration des graphiques (fallback local si util.js absent)
-        function exportPdfWithCharts(endpoint, baseQuery) {
-            try {
-                if (!window.Chart) {
+        <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+        <script>
+            // Initialisation des sélecteurs modernes (Choices.js) + logique page
+            document.addEventListener('DOMContentLoaded', function() {
+                const prestSel = document.querySelector('select[name="prestataire[]"]');
+                if (prestSel) {
+                    new Choices(prestSel, {
+                        removeItemButton: true,
+                        placeholder: true,
+                        placeholderValue: 'Prestataire(s)',
+                        searchPlaceholderValue: 'Rechercher…',
+                        shouldSort: true,
+                        allowHTML: false,
+                        duplicateItemsAllowed: false
+                    });
+                }
+                const chSel = document.querySelector('select[name="chauffeur"]');
+                if (chSel) {
+                    new Choices(chSel, {
+                        placeholder: true,
+                        placeholderValue: 'Chauffeur',
+                        searchEnabled: true,
+                        searchPlaceholderValue: 'Rechercher chauffeur…',
+                        allowHTML: false,
+                        shouldSort: true
+                    });
+                }
+                const camSel = document.querySelector('select[name="camion"]');
+                if (camSel) {
+                    new Choices(camSel, {
+                        placeholder: true,
+                        placeholderValue: 'Camion',
+                        searchEnabled: true,
+                        searchPlaceholderValue: 'Rechercher camion…',
+                        allowHTML: false,
+                        shouldSort: true
+                    });
+                }
+            });
+            // Export PDF avec intégration des graphiques (fallback local si util.js absent)
+            function exportPdfWithCharts(endpoint, baseQuery) {
+                try {
+                    if (!window.Chart) {
+                        window.open(endpoint + '?' + baseQuery, '_blank');
+                        return;
+                    }
+                    const out = {};
+                    if (Chart.instances && typeof Chart.instances.forEach === 'function') {
+                        Chart.instances.forEach(inst => {
+                            try {
+                                out[inst.canvas.id] = inst.toBase64Image('image/png', 1);
+                            } catch (e) {}
+                        });
+                    }
+                    const fd = new FormData();
+                    fd.append('charts_json', JSON.stringify(out));
+                    fd.append('filters', baseQuery);
+                    fetch(endpoint, {
+                            method: 'POST',
+                            body: fd
+                        })
+                        .then(r => {
+                            if (!r.ok) throw new Error(r.status);
+                            return r.blob();
+                        })
+                        .then(blob => {
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = 'recap_voyages.pdf';
+                            a.click();
+                            setTimeout(() => URL.revokeObjectURL(url), 3000);
+                        })
+                        .catch(() => window.open(endpoint + '?' + baseQuery, '_blank'));
+                } catch (e) {
                     window.open(endpoint + '?' + baseQuery, '_blank');
-                    return;
                 }
-                const out = {};
-                if (Chart.instances && typeof Chart.instances.forEach === 'function') {
-                    Chart.instances.forEach(inst => {
-                        try {
-                            out[inst.canvas.id] = inst.toBase64Image('image/png', 1);
-                        } catch (e) {}
-                    });
-                }
-                const fd = new FormData();
-                fd.append('charts_json', JSON.stringify(out));
-                fd.append('filters', baseQuery);
-                fetch(endpoint, {
-                        method: 'POST',
-                        body: fd
-                    })
-                    .then(r => {
-                        if (!r.ok) throw new Error(r.status);
-                        return r.blob();
-                    })
-                    .then(blob => {
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = 'recap_voyages.pdf';
-                        a.click();
-                        setTimeout(() => URL.revokeObjectURL(url), 3000);
-                    })
-                    .catch(() => window.open(endpoint + '?' + baseQuery, '_blank'));
-            } catch (e) {
-                window.open(endpoint + '?' + baseQuery, '_blank');
             }
-        }
-        const labels = <?= json_encode($labels) ?>;
-        const dataMontant = <?= json_encode($serieMontant) ?>;
-        const dataCarb = <?= json_encode($serieCarb) ?>;
-        const dataReel = <?= json_encode($serieReel) ?>;
-        const dataVoy = <?= json_encode($serieVoy) ?>;
-        const dataLit = <?= json_encode($serieLitre) ?>;
-        const dataPrix = <?= json_encode($seriePrixLitre) ?>;
-        const dataCubage = <?= json_encode($serieCubage) ?>;
-        // Totaux filtrés (calculés serveur) pour export global
-        const totNb = <?= json_encode((int)$totalNbVoy) ?>;
-        const totCub = <?= json_encode((float)$totalCubage) ?>;
-        const totMont = <?= json_encode((float)$totalMontantOrigine) ?>;
-        const totFrais = <?= json_encode((float)$totalFrais) ?>;
-        const totCarb = <?= json_encode((float)$totalCarb) ?>;
-        const totLit = <?= json_encode((float)$totalLitres) ?>;
-        const totReel = <?= json_encode((float)$totalReel) ?>;
-        const topBenefLabels = <?= json_encode($topBenefLabels) ?>;
-        const topBenefCubage = <?= json_encode($topBenefCubage) ?>;
-        const initialLoaded = <?= count($initialRows) ?>;
-        const totalVoyages = <?= $totalVoyages ?>;
-        let offsetVoy = initialLoaded;
-        const pageSize = 50;
-        let loading = false;
+            const labels = <?= json_encode($labels) ?>;
+            const dataMontant = <?= json_encode($serieMontant) ?>;
+            const dataCarb = <?= json_encode($serieCarb) ?>;
+            const dataReel = <?= json_encode($serieReel) ?>;
+            const dataVoy = <?= json_encode($serieVoy) ?>;
+            const dataLit = <?= json_encode($serieLitre) ?>;
+            const dataPrix = <?= json_encode($seriePrixLitre) ?>;
+            const dataCubage = <?= json_encode($serieCubage) ?>;
+            // Totaux filtrés (calculés serveur) pour export global
+            const totNb = <?= json_encode((int)$totalNbVoy) ?>;
+            const totCub = <?= json_encode((float)$totalCubage) ?>;
+            const totMont = <?= json_encode((float)$totalMontantOrigine) ?>;
+            const totFrais = <?= json_encode((float)$totalFrais) ?>;
+            const totCarb = <?= json_encode((float)$totalCarb) ?>;
+            const totLit = <?= json_encode((float)$totalLitres) ?>;
+            const totReel = <?= json_encode((float)$totalReel) ?>;
+            const topBenefLabels = <?= json_encode($topBenefLabels) ?>;
+            const topBenefCubage = <?= json_encode($topBenefCubage) ?>;
+            const initialLoaded = <?= count($initialRows) ?>;
+            const totalVoyages = <?= $totalVoyages ?>;
+            let offsetVoy = initialLoaded;
+            const pageSize = 50;
+            let loading = false;
 
-        function buildQueryBase() {
-            const form = document.querySelector('form');
-            const params = new URLSearchParams();
-            [...form.elements].forEach(el => {
-                if (!el.name || el.disabled) return;
-                if (el.tagName === 'SELECT' && el.multiple) {
-                    [...el.options].forEach(o => {
-                        if (o.selected) params.append(el.name.replace('[]', ''), o.value);
-                    });
-                } else if (el.type !== 'button' && el.type !== 'submit') {
-                    if (el.value !== '') params.append(el.name.replace('[]', ''), el.value);
-                }
-            });
-            return params.toString();
-        }
-        const baseQuery = buildQueryBase();
+            function buildQueryBase() {
+                const form = document.querySelector('form');
+                const params = new URLSearchParams();
+                [...form.elements].forEach(el => {
+                    if (!el.name || el.disabled) return;
+                    if (el.tagName === 'SELECT' && el.multiple) {
+                        [...el.options].forEach(o => {
+                            if (o.selected) params.append(el.name.replace('[]', ''), o.value);
+                        });
+                    } else if (el.type !== 'button' && el.type !== 'submit') {
+                        if (el.value !== '') params.append(el.name.replace('[]', ''), el.value);
+                    }
+                });
+                return params.toString();
+            }
+            const baseQuery = buildQueryBase();
 
-        function fmt(n) {
-            return new Intl.NumberFormat('fr-FR').format(n);
-        }
-        if (labels.length) {
-            const ctxM = document.getElementById('chartMontant').getContext('2d');
-            new Chart(ctxM, {
-                type: 'line',
-                data: {
-                    labels,
-                    datasets: [{
-                            label: 'Montant Orig.',
-                            data: dataMontant,
-                            borderColor: '#d97706',
-                            backgroundColor: 'rgba(217,119,6,.15)',
-                            tension: .25,
-                            fill: true
-                        },
-                        {
-                            label: 'Carburant',
-                            data: dataCarb,
-                            borderColor: '#15803d',
-                            backgroundColor: 'rgba(21,128,61,.15)',
-                            tension: .25,
-                            fill: true
-                        },
-                        {
-                            label: 'Réel Reçu',
-                            data: dataReel,
-                            borderColor: '#1d4ed8',
-                            backgroundColor: 'rgba(29,78,216,.15)',
-                            tension: .25,
-                            fill: true
-                        },
-                        {
-                            label: 'Prix/L (moyen)',
-                            data: dataPrix,
-                            type: 'line',
-                            yAxisID: 'y2',
-                            borderColor: '#6d28d9',
-                            backgroundColor: 'rgba(109,40,217,.15)',
-                            tension: .25,
-                            fill: false
-                        }
-                    ]
-                },
-                options: {
-                    plugins: {
-                        legend: {
-                            labels: {
-                                font: {
-                                    size: 10
-                                }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: c => c.dataset.label + ': ' + fmt(c.parsed.y)
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            ticks: {
-                                font: {
-                                    size: 9
-                                }
-                            }
-                        },
-                        y: {
-                            ticks: {
-                                font: {
-                                    size: 9
-                                },
-                                callback: v => fmt(v)
-                            }
-                        },
-                        y2: {
-                            position: 'right',
-                            grid: {
-                                drawOnChartArea: false
+            function fmt(n) {
+                return new Intl.NumberFormat('fr-FR').format(n);
+            }
+            if (labels.length) {
+                const ctxM = document.getElementById('chartMontant').getContext('2d');
+                new Chart(ctxM, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [{
+                                label: 'Montant Orig.',
+                                data: dataMontant,
+                                borderColor: '#d97706',
+                                backgroundColor: 'rgba(217,119,6,.15)',
+                                tension: .25,
+                                fill: true
                             },
-                            ticks: {
-                                font: {
-                                    size: 9
-                                },
-                                callback: v => fmt(v)
+                            {
+                                label: 'Carburant',
+                                data: dataCarb,
+                                borderColor: '#15803d',
+                                backgroundColor: 'rgba(21,128,61,.15)',
+                                tension: .25,
+                                fill: true
+                            },
+                            {
+                                label: 'Réel Reçu',
+                                data: dataReel,
+                                borderColor: '#1d4ed8',
+                                backgroundColor: 'rgba(29,78,216,.15)',
+                                tension: .25,
+                                fill: true
+                            },
+                            {
+                                label: 'Prix/L (moyen)',
+                                data: dataPrix,
+                                type: 'line',
+                                yAxisID: 'y2',
+                                borderColor: '#6d28d9',
+                                backgroundColor: 'rgba(109,40,217,.15)',
+                                tension: .25,
+                                fill: false
                             }
-                        }
-                    }
-                }
-            });
-            const ctxV = document.getElementById('chartVoy').getContext('2d');
-            new Chart(ctxV, {
-                type: 'bar',
-                data: {
-                    labels,
-                    datasets: [{
-                            label: 'Voyages',
-                            data: dataVoy,
-                            backgroundColor: '#facc15'
-                        },
-                        {
-                            label: 'Litres',
-                            data: dataLit,
-                            backgroundColor: '#2563eb'
-                        }
-                    ]
-                },
-                options: {
-                    plugins: {
-                        legend: {
-                            labels: {
-                                font: {
-                                    size: 10
-                                }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: c => c.dataset.label + ': ' + fmt(c.parsed.y)
-                            }
-                        }
+                        ]
                     },
-                    scales: {
-                        x: {
-                            ticks: {
-                                font: {
-                                    size: 9
+                    options: {
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    font: {
+                                        size: 10
+                                    }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: c => c.dataset.label + ': ' + fmt(c.parsed.y)
                                 }
                             }
                         },
-                        y: {
-                            ticks: {
-                                font: {
-                                    size: 9
+                        scales: {
+                            x: {
+                                ticks: {
+                                    font: {
+                                        size: 9
+                                    }
+                                }
+                            },
+                            y: {
+                                ticks: {
+                                    font: {
+                                        size: 9
+                                    },
+                                    callback: v => fmt(v)
+                                }
+                            },
+                            y2: {
+                                position: 'right',
+                                grid: {
+                                    drawOnChartArea: false
                                 },
-                                callback: v => fmt(v)
-                            }
-                        }
-                    }
-                }
-            });
-            const ctxC = document.getElementById('chartCubage').getContext('2d');
-            new Chart(ctxC, {
-                type: 'bar',
-                data: {
-                    labels,
-                    datasets: [{
-                        label: 'Cubage (m³)',
-                        data: dataCubage,
-                        backgroundColor: '#f59e0b'
-                    }]
-                },
-                options: {
-                    plugins: {
-                        legend: {
-                            labels: {
-                                font: {
-                                    size: 10
+                                ticks: {
+                                    font: {
+                                        size: 9
+                                    },
+                                    callback: v => fmt(v)
                                 }
                             }
                         }
+                    }
+                });
+                const ctxV = document.getElementById('chartVoy').getContext('2d');
+                new Chart(ctxV, {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [{
+                                label: 'Voyages',
+                                data: dataVoy,
+                                backgroundColor: '#facc15'
+                            },
+                            {
+                                label: 'Litres',
+                                data: dataLit,
+                                backgroundColor: '#2563eb'
+                            }
+                        ]
                     },
-                    scales: {
-                        x: {
-                            ticks: {
-                                font: {
-                                    size: 9
+                    options: {
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    font: {
+                                        size: 10
+                                    }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: c => c.dataset.label + ': ' + fmt(c.parsed.y)
                                 }
                             }
                         },
-                        y: {
-                            ticks: {
-                                font: {
-                                    size: 9
-                                },
-                                callback: v => fmt(v)
-                            }
-                        }
-                    }
-                }
-            });
-            const ctxTB = document.getElementById('chartTopBenef').getContext('2d');
-            new Chart(ctxTB, {
-                type: 'bar',
-                data: {
-                    labels: topBenefLabels,
-                    datasets: [{
-                        label: 'Cubage (m³)',
-                        data: topBenefCubage,
-                        backgroundColor: '#10b981'
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    plugins: {
-                        legend: {
-                            labels: {
-                                font: {
-                                    size: 10
+                        scales: {
+                            x: {
+                                ticks: {
+                                    font: {
+                                        size: 9
+                                    }
+                                }
+                            },
+                            y: {
+                                ticks: {
+                                    font: {
+                                        size: 9
+                                    },
+                                    callback: v => fmt(v)
                                 }
                             }
                         }
+                    }
+                });
+                const ctxC = document.getElementById('chartCubage').getContext('2d');
+                new Chart(ctxC, {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: 'Cubage (m³)',
+                            data: dataCubage,
+                            backgroundColor: '#f59e0b'
+                        }]
                     },
-                    scales: {
-                        x: {
-                            ticks: {
-                                font: {
-                                    size: 9
-                                },
-                                callback: v => fmt(v)
+                    options: {
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    font: {
+                                        size: 10
+                                    }
+                                }
                             }
                         },
-                        y: {
-                            ticks: {
-                                font: {
-                                    size: 9
+                        scales: {
+                            x: {
+                                ticks: {
+                                    font: {
+                                        size: 9
+                                    }
+                                }
+                            },
+                            y: {
+                                ticks: {
+                                    font: {
+                                        size: 9
+                                    },
+                                    callback: v => fmt(v)
                                 }
                             }
                         }
                     }
-                }
-            });
-        }
-        document.getElementById('btnExportCsv')?.addEventListener('click', () => {
-            const table = document.getElementById('tableVoyages');
-            const header = [...table.querySelectorAll('thead th')].map(th => th.innerText.trim());
-            const rows = [...table.querySelectorAll('tbody tr')].map(tr => [...tr.children].map(td => td.innerText.trim()));
-            // Ajouter ligne TOTAL basée sur totaux globaux filtrés
-            const fmtInt = n => new Intl.NumberFormat('fr-FR').format(n);
-            const fmt2 = n => new Intl.NumberFormat('fr-FR', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            }).format(n);
-            const totalRow = [
-                'TOTAL', '', '', '', '', '', '',
-                fmtInt(totNb),
-                fmt2(totCub),
-                fmtInt(totMont),
-                fmtInt(totFrais),
-                fmtInt(totCarb),
-                fmtInt(totLit),
-                fmtInt(totReel)
-            ];
-            const all = [header, ...rows, totalRow];
-            const csv = all.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n');
-            const blob = new Blob([csv], {
-                type: 'text/csv;charset=utf-8;'
-            });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = 'recap_carburant.csv';
-            a.click();
-        });
-        document.getElementById('btnExportXlsx')?.addEventListener('click', () => {
-            const wb = XLSX.utils.book_new();
-            // Voyages sheet
-            const table1 = document.getElementById('tableVoyages');
-            const headers1 = [...table1.querySelectorAll('thead th')].map(th => th.innerText.trim());
-            const rows1 = [...table1.querySelectorAll('tbody tr')].map(tr => [...tr.children].map(td => td.innerText.trim()));
-            // Ligne TOTAL pour Voyages
-            const fmtInt = n => new Intl.NumberFormat('fr-FR').format(n);
-            const fmt2 = n => new Intl.NumberFormat('fr-FR', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            }).format(n);
-            const totalRow1 = ['TOTAL', '', '', '', '', '', '', fmtInt(totNb), fmt2(totCub), fmtInt(totMont), fmtInt(totFrais), fmtInt(totCarb), fmtInt(totLit), fmtInt(totReel)];
-            const sheet1 = XLSX.utils.aoa_to_sheet([headers1, ...rows1, totalRow1]);
-            XLSX.utils.book_append_sheet(wb, sheet1, 'Voyages');
-            // Prestataires sheet
-            const table2 = document.getElementById('tablePrest');
-            if (table2) {
-                const headers2 = [...table2.querySelectorAll('thead th')].map(th => th.innerText.trim());
-                const rows2 = [...table2.querySelectorAll('tbody tr')].map(tr => [...tr.children].map(td => td.innerText.trim()));
-                // Ligne TOTAL pour Prestataires
-                // Colonnes: Prestataire | Voyages | Nb (saisi) | Cubage | Montant Orig | Frais | Carb | Litres | Prix/L | L/m³ | %Carb/Mont | Réel
-                const prixLGlobal = totLit > 0 ? (totCarb / totLit) : 0;
-                const lm3Global = totCub > 0 ? (totLit / totCub) : 0;
-                const ratioPctGlobal = totMont > 0 ? (totCarb / totMont * 100) : 0;
-                const totalRow2 = [
-                    'TOTAL',
-                    fmtInt(totVoyages), // voyages (nombre de lignes)
+                });
+                const ctxTB = document.getElementById('chartTopBenef').getContext('2d');
+                new Chart(ctxTB, {
+                    type: 'bar',
+                    data: {
+                        labels: topBenefLabels,
+                        datasets: [{
+                            label: 'Cubage (m³)',
+                            data: topBenefCubage,
+                            backgroundColor: '#10b981'
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    font: {
+                                        size: 10
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                ticks: {
+                                    font: {
+                                        size: 9
+                                    },
+                                    callback: v => fmt(v)
+                                }
+                            },
+                            y: {
+                                ticks: {
+                                    font: {
+                                        size: 9
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            document.getElementById('btnExportCsv')?.addEventListener('click', () => {
+                const table = document.getElementById('tableVoyages');
+                const header = [...table.querySelectorAll('thead th')].map(th => th.innerText.trim());
+                const rows = [...table.querySelectorAll('tbody tr')].map(tr => [...tr.children].map(td => td.innerText.trim()));
+                // Ajouter ligne TOTAL basée sur totaux globaux filtrés
+                const fmtInt = n => new Intl.NumberFormat('fr-FR').format(n);
+                const fmt2 = n => new Intl.NumberFormat('fr-FR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                }).format(n);
+                const totalRow = [
+                    'TOTAL', '', '', '', '', '', '',
                     fmtInt(totNb),
                     fmt2(totCub),
                     fmtInt(totMont),
                     fmtInt(totFrais),
                     fmtInt(totCarb),
                     fmtInt(totLit),
-                    fmtInt(prixLGlobal),
-                    new Intl.NumberFormat('fr-FR', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                    }).format(lm3Global),
-                    new Intl.NumberFormat('fr-FR', {
-                        minimumFractionDigits: 1,
-                        maximumFractionDigits: 1
-                    }).format(ratioPctGlobal),
                     fmtInt(totReel)
                 ];
-                const sheet2 = XLSX.utils.aoa_to_sheet([headers2, ...rows2, totalRow2]);
-                XLSX.utils.book_append_sheet(wb, sheet2, 'Prestataires');
-            }
-            XLSX.writeFile(wb, 'recap_carburant.xlsx');
-        });
-        document.getElementById('btnPrint')?.addEventListener('click', () => window.print());
-        document.getElementById('btnExportPdf')?.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (window.DecapUtil && DecapUtil.exportPdfWithCharts) {
-                DecapUtil.exportPdfWithCharts('export_pdf_voyages.php');
-            } else {
-                window.open('export_pdf_voyages.php?' + baseQuery, '_blank');
-            }
-        });
-        const scrollContainer = document.querySelector('#tableVoyages').parentElement;
-        async function loadMore() {
-            if (loading) return;
-            if (offsetVoy >= totalVoyages) return;
-            loading = true;
-            try {
-                const resp = await fetch('voyages_api.php?' + baseQuery + '&offset=' + offsetVoy + '&limit=' + pageSize);
-                if (!resp.ok) return;
-                const data = await resp.json();
-                const tbody = document.getElementById('voyagesBody');
-                data.rows.forEach(v => {
-                    const tr = document.createElement('tr');
-                    tr.className = 'border-b';
-                    const nfInt = n => new Intl.NumberFormat('fr-FR').format(n);
-                    const soldBtnCls = (v.solde && Number(v.solde) === 1) ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700';
-                    const soldLbl = (v.solde && Number(v.solde) === 1) ? 'Soldé' : 'Non soldé';
-                    tr.innerHTML = `<td>${v.date_voyage||''}</td>
+                const all = [header, ...rows, totalRow];
+                const csv = all.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n');
+                const blob = new Blob([csv], {
+                    type: 'text/csv;charset=utf-8;'
+                });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'recap_carburant.csv';
+                a.click();
+            });
+            document.getElementById('btnExportXlsx')?.addEventListener('click', () => {
+                const wb = XLSX.utils.book_new();
+                // Voyages sheet
+                const table1 = document.getElementById('tableVoyages');
+                const headers1 = [...table1.querySelectorAll('thead th')].map(th => th.innerText.trim());
+                const rows1 = [...table1.querySelectorAll('tbody tr')].map(tr => [...tr.children].map(td => td.innerText.trim()));
+                // Ligne TOTAL pour Voyages
+                const fmtInt = n => new Intl.NumberFormat('fr-FR').format(n);
+                const fmt2 = n => new Intl.NumberFormat('fr-FR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                }).format(n);
+                const totalRow1 = ['TOTAL', '', '', '', '', '', '', fmtInt(totNb), fmt2(totCub), fmtInt(totMont), fmtInt(totFrais), fmtInt(totCarb), fmtInt(totLit), fmtInt(totReel)];
+                const sheet1 = XLSX.utils.aoa_to_sheet([headers1, ...rows1, totalRow1]);
+                XLSX.utils.book_append_sheet(wb, sheet1, 'Voyages');
+                // Prestataires sheet
+                const table2 = document.getElementById('tablePrest');
+                if (table2) {
+                    const headers2 = [...table2.querySelectorAll('thead th')].map(th => th.innerText.trim());
+                    const rows2 = [...table2.querySelectorAll('tbody tr')].map(tr => [...tr.children].map(td => td.innerText.trim()));
+                    // Ligne TOTAL pour Prestataires
+                    // Colonnes: Prestataire | Voyages | Nb (saisi) | Cubage | Montant Orig | Frais | Carb | Litres | Prix/L | L/m³ | %Carb/Mont | Réel
+                    const prixLGlobal = totLit > 0 ? (totCarb / totLit) : 0;
+                    const lm3Global = totCub > 0 ? (totLit / totCub) : 0;
+                    const ratioPctGlobal = totMont > 0 ? (totCarb / totMont * 100) : 0;
+                    const totalRow2 = [
+                        'TOTAL',
+                        fmtInt(totVoyages), // voyages (nombre de lignes)
+                        fmtInt(totNb),
+                        fmt2(totCub),
+                        fmtInt(totMont),
+                        fmtInt(totFrais),
+                        fmtInt(totCarb),
+                        fmtInt(totLit),
+                        fmtInt(prixLGlobal),
+                        new Intl.NumberFormat('fr-FR', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                        }).format(lm3Global),
+                        new Intl.NumberFormat('fr-FR', {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1
+                        }).format(ratioPctGlobal),
+                        fmtInt(totReel)
+                    ];
+                    const sheet2 = XLSX.utils.aoa_to_sheet([headers2, ...rows2, totalRow2]);
+                    XLSX.utils.book_append_sheet(wb, sheet2, 'Prestataires');
+                }
+                XLSX.writeFile(wb, 'recap_carburant.xlsx');
+            });
+            document.getElementById('btnPrint')?.addEventListener('click', () => window.print());
+            document.getElementById('btnExportPdf')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (window.DecapUtil && DecapUtil.exportPdfWithCharts) {
+                    DecapUtil.exportPdfWithCharts('export_pdf_voyages.php');
+                } else {
+                    window.open('export_pdf_voyages.php?' + baseQuery, '_blank');
+                }
+            });
+            const scrollContainer = document.querySelector('#tableVoyages').parentElement;
+            async function loadMore() {
+                if (loading) return;
+                if (offsetVoy >= totalVoyages) return;
+                loading = true;
+                try {
+                    const resp = await fetch('voyages_api.php?' + baseQuery + '&offset=' + offsetVoy + '&limit=' + pageSize);
+                    if (!resp.ok) return;
+                    const data = await resp.json();
+                    const tbody = document.getElementById('voyagesBody');
+                    data.rows.forEach(v => {
+                        const tr = document.createElement('tr');
+                        tr.className = 'border-b';
+                        const nfInt = n => new Intl.NumberFormat('fr-FR').format(n);
+                        const soldBtnCls = (v.solde && Number(v.solde) === 1) ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700';
+                        const soldLbl = (v.solde && Number(v.solde) === 1) ? 'Soldé' : 'Non soldé';
+                        tr.innerHTML = `<td>${v.date_voyage||''}</td>
                 <td>${v.prestataire||''}</td>
                 <td>${v.chauffeur||''}</td>
                 <td>${v.telephone||''}</td>
@@ -1121,106 +1163,105 @@ $targetVolumeFmt = number_format($target_volume, 1, ',', ' ');
                 <td class='text-right'>${nfInt(v.carburant_montant||0)}</td>
                 <td class='text-right'>${nfInt(v.carburant_litre||0)}</td>
                 <td class='text-right'>${nfInt(v.reel_recu||0)}</td>`;
-                    tbody.appendChild(tr);
-                });
-                offsetVoy += data.rows.length;
-            } finally {
-                loading = false;
-            }
-        }
-        scrollContainer.addEventListener('scroll', () => {
-            if (scrollContainer.scrollTop + scrollContainer.clientHeight + 60 >= scrollContainer.scrollHeight) {
-                loadMore();
-            }
-        });
-
-        // Toggle soldé / non soldé
-        document.getElementById('voyagesBody')?.addEventListener('click', async (e) => {
-            const btn = e.target.closest('.btn-solde');
-            if (!btn) return;
-            const id = btn.getAttribute('data-id');
-            const cur = btn.getAttribute('data-solde') === '1' ? 1 : 0;
-            const next = cur ? 0 : 1;
-            const ref = next ? (prompt('Référence de décaissement (optionnel) :', '') || '') : '';
-            try {
-                const form = new FormData();
-                form.append('action', 'setVoyageSolde');
-                form.append('id', id);
-                form.append('solde', String(next));
-                if (ref) form.append('ref', ref);
-                const resp = await fetch('api.php', {
-                    method: 'POST',
-                    body: form
-                });
-                const js = await resp.json();
-                if (js && js.ok) {
-                    btn.setAttribute('data-solde', String(next));
-                    if (next) {
-                        btn.textContent = 'Soldé';
-                        btn.classList.remove('bg-gray-100', 'text-gray-700');
-                        btn.classList.add('bg-green-100', 'text-green-700');
-                    } else {
-                        btn.textContent = 'Non soldé';
-                        btn.classList.remove('bg-green-100', 'text-green-700');
-                        btn.classList.add('bg-gray-100', 'text-gray-700');
-                    }
-                } else {
-                    alert('Echec maj: ' + (js && js.error ? js.error : 'inconnu'));
+                        tbody.appendChild(tr);
+                    });
+                    offsetVoy += data.rows.length;
+                } finally {
+                    loading = false;
                 }
-            } catch (err) {
-                alert('Erreur réseau maj décaissement');
             }
-        });
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script>
-        // Dark mode init (si script principal plus haut ne l'a pas déjà fait)
-        (function() {
-            const btn = document.getElementById('toggleThemeRecap');
+            scrollContainer.addEventListener('scroll', () => {
+                if (scrollContainer.scrollTop + scrollContainer.clientHeight + 60 >= scrollContainer.scrollHeight) {
+                    loadMore();
+                }
+            });
 
-            function apply() {
+            // Toggle soldé / non soldé
+            document.getElementById('voyagesBody')?.addEventListener('click', async (e) => {
+                const btn = e.target.closest('.btn-solde');
+                if (!btn) return;
+                const id = btn.getAttribute('data-id');
+                const cur = btn.getAttribute('data-solde') === '1' ? 1 : 0;
+                const next = cur ? 0 : 1;
+                const ref = next ? (prompt('Référence de décaissement (optionnel) :', '') || '') : '';
+                try {
+                    const form = new FormData();
+                    form.append('action', 'setVoyageSolde');
+                    form.append('id', id);
+                    form.append('solde', String(next));
+                    if (ref) form.append('ref', ref);
+                    const resp = await fetch('api.php', {
+                        method: 'POST',
+                        body: form
+                    });
+                    const js = await resp.json();
+                    if (js && js.ok) {
+                        btn.setAttribute('data-solde', String(next));
+                        if (next) {
+                            btn.textContent = 'Soldé';
+                            btn.classList.remove('bg-gray-100', 'text-gray-700');
+                            btn.classList.add('bg-green-100', 'text-green-700');
+                        } else {
+                            btn.textContent = 'Non soldé';
+                            btn.classList.remove('bg-green-100', 'text-green-700');
+                            btn.classList.add('bg-gray-100', 'text-gray-700');
+                        }
+                    } else {
+                        alert('Echec maj: ' + (js && js.error ? js.error : 'inconnu'));
+                    }
+                } catch (err) {
+                    alert('Erreur réseau maj décaissement');
+                }
+            });
+        </script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+        <script>
+            // Dark mode init (si script principal plus haut ne l'a pas déjà fait)
+            (function() {
+                const btn = document.getElementById('toggleThemeRecap');
+
+                function apply() {
+                    const mode = localStorage.getItem('theme') || 'light';
+                    document.documentElement.classList.toggle('dark', mode === 'dark');
+                    if (btn) {
+                        btn.textContent = mode === 'dark' ? '☀️' : '🌙';
+                        btn.title = mode === 'dark' ? 'Mode clair' : 'Mode sombre';
+                    }
+                }
+                if (btn) {
+                    btn.addEventListener('click', () => {
+                        const cur = localStorage.getItem('theme') === 'dark' ? 'light' : 'dark';
+                        localStorage.setItem('theme', cur);
+                        apply();
+                    });
+                }
+                apply();
+            })();
+
+            // Menu + thème recap
+            const hambBtn = document.getElementById('hambBtn');
+            const sideMenu = document.getElementById('sideMenu');
+            if (hambBtn) hambBtn.addEventListener('click', () => sideMenu.classList.toggle('-translate-x-full'));
+            const themeBtn = document.getElementById('toggleThemeRecap');
+
+            function applyThemeRecap() {
                 const mode = localStorage.getItem('theme') || 'light';
                 document.documentElement.classList.toggle('dark', mode === 'dark');
-                if (btn) {
-                    btn.textContent = mode === 'dark' ? '☀️' : '🌙';
-                    btn.title = mode === 'dark' ? 'Mode clair' : 'Mode sombre';
+                if (themeBtn) {
+                    themeBtn.textContent = mode === 'dark' ? '☀️' : '🌙';
+                    themeBtn.title = mode === 'dark' ? 'Mode clair' : 'Mode sombre';
                 }
             }
-            if (btn) {
-                btn.addEventListener('click', () => {
+            if (themeBtn) {
+                themeBtn.addEventListener('click', () => {
                     const cur = localStorage.getItem('theme') === 'dark' ? 'light' : 'dark';
                     localStorage.setItem('theme', cur);
-                    apply();
+                    applyThemeRecap();
                 });
             }
-            apply();
-        })();
-    </script>
-    <script>
-        // Menu + thème recap
-        const hambBtn = document.getElementById('hambBtn');
-        const sideMenu = document.getElementById('sideMenu');
-        if (hambBtn) hambBtn.addEventListener('click', () => sideMenu.classList.toggle('-translate-x-full'));
-        const themeBtn = document.getElementById('toggleThemeRecap');
-
-        function applyThemeRecap() {
-            const mode = localStorage.getItem('theme') || 'light';
-            document.documentElement.classList.toggle('dark', mode === 'dark');
-            if (themeBtn) {
-                themeBtn.textContent = mode === 'dark' ? '☀️' : '🌙';
-                themeBtn.title = mode === 'dark' ? 'Mode clair' : 'Mode sombre';
-            }
-        }
-        if (themeBtn) {
-            themeBtn.addEventListener('click', () => {
-                const cur = localStorage.getItem('theme') === 'dark' ? 'light' : 'dark';
-                localStorage.setItem('theme', cur);
-                applyThemeRecap();
-            });
-        }
-        applyThemeRecap();
-    </script>
+            applyThemeRecap();
+        </script>
     </div>
 </body>
 

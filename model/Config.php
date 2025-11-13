@@ -21,7 +21,7 @@ class AppConfig
     private const DEF_TWILIO_TOKEN = '7f1136b112e6d8cb4a6af94223d0872e';
     private const DEF_WHATSAPP_FROM = 'whatsapp:+2250711048002';
     private const DEF_GERANTE_WA = '+2250788202420';
-    private const DEF_GERANTE_SMS = '2250788202420';
+    private const DEF_GERANTE_SMS = '+2250716222201';
 
     // Keys in DB
     private const K_TWILIO_SID = 'twilio.sid';
