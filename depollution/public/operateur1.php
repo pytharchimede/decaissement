@@ -357,12 +357,21 @@ session_start();
                     .then(r => r.json())
                     .then(j => {
                         if (!j.ok) return;
-                        recentWrap.innerHTML = j.data.map(v => `<div class='recent-card'>
-                        <div class='flex items-center justify-between'><span class='recent-badge'>#${v.id}</span><span class='font-medium text-[10px] text-yellow-800'>${v.date_voyage}</span></div>
-                        <div class='text-[11px] font-semibold text-slate-700'>${v.camion_matricule||''}</div>
-                        <div class='text-[10px] text-slate-600'>${v.chauffeur||''}</div>
-                        <div class='text-[10px] text-yellow-700'>${Number(v.montant_origine||0).toLocaleString('fr-FR')} CFA</div>
-                    </div>`).join('');
+                        recentWrap.innerHTML = j.data.map(v => {
+                            const isPdf = (v.fichier_path || '').toLowerCase().endsWith('.pdf');
+                            const thumb = v.fichier_path ? (isPdf ?
+                                `<a href='bon_file.php?bon_id=${v.bon_id}' target='_blank' class='block mt-1 text-[10px] text-yellow-800 underline'>Voir PDF</a>` :
+                                `<img src='bon_file.php?bon_id=${v.bon_id}' alt='Bon' class='mt-1 w-full h-20 object-cover rounded border border-yellow-200' loading='lazy' />`) : '';
+                            const opLabel = v.operation_label ? `<div class='text-[10px] text-slate-700 italic'>${v.operation_label}</div>` : '';
+                            return `<div class='recent-card'>
+                                <div class='flex items-center justify-between'><span class='recent-badge'>#${v.id}</span><span class='font-medium text-[10px] text-yellow-800'>${v.date_voyage}</span></div>
+                                <div class='text-[11px] font-semibold text-slate-700'>${v.camion_matricule||''}</div>
+                                <div class='text-[10px] text-slate-600'>${v.chauffeur||''}</div>
+                                ${opLabel}
+                                <div class='text-[10px] text-yellow-700'>${Number(v.montant_origine||0).toLocaleString('fr-FR')} CFA</div>
+                                ${thumb}
+                            </div>`;
+                        }).join('');
                         applyQuickFilter();
                     });
             };

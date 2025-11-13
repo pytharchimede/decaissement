@@ -183,7 +183,18 @@ form.addEventListener("submit", (e) => {
         toast(j.error || "Erreur création", false);
         return;
       }
-      toast("Voyage créé (#" + j.voyage_id + ")");
+      // Construire message toast enrichi avec diagnostic upload si présent
+      let msg = "Voyage créé (#" + j.voyage_id + ")";
+      if (j.upload_diag) {
+        if (j.upload_diag.saved_path) {
+          msg += " · fichier OK";
+        } else if (j.upload_diag.file_field_present) {
+          msg += " · fichier non sauvegardé";
+        } else {
+          msg += " · sans fichier";
+        }
+      }
+      toast(msg);
       form.reset();
       current = 0;
       goto(0);
@@ -208,10 +219,13 @@ function loadRecent() {
       wrap.innerHTML = j.data
         .map((v) => {
           const thumbUrl = v.bon_id
-            ? API.replace("api.php", "bon_file.php") + `?id=${v.bon_id}`
+            ? API.replace("api.php", "bon_file.php") + `?bon_id=${v.bon_id}`
             : null;
           const thumb = thumbUrl
             ? `<img src="${thumbUrl}" alt="bon" style="width:68px;height:48px;object-fit:cover;border-radius:6px;border:1px solid #fde68a;margin-right:.5rem;" onerror="this.remove()"/>`
+            : "";
+          const opLine = v.operation_label
+            ? `<div class='text-[10px] text-slate-700 italic'>${v.operation_label}</div>`
             : "";
           return `<div class='recent-card'>
             <div class='flex items-center justify-between'><span class='recent-badge'>#${
@@ -227,6 +241,7 @@ function loadRecent() {
                 <div class='text-[10px] text-slate-600'>${
                   v.chauffeur || ""
                 }</div>
+                ${opLine}
                 <div class='text-[10px] text-yellow-700'>${Number(
                   v.montant_origine || 0
                 ).toLocaleString("fr-FR")} CFA</div>

@@ -23,8 +23,9 @@ $prestataire_filters = isset($_GET['prestataire']) ? (array)$_GET['prestataire']
 $chauffeur_filter = $_GET['chauffeur'] ?? '';
 $camion_filter = $_GET['camion'] ?? '';
 $operation_filter = $_GET['operation'] ?? '';
-// Join optionnel pour l'opération (filtre par libellé)
+// Join optionnel pour l'opération (filtre par libellé) + détection colonne existante
 $joinOperation = '';
+$selectOpLabel = '';
 
 $solde_filter = isset($_GET['solde']) ? $_GET['solde'] : '';
 if ($prestataire_filters) {
@@ -45,11 +46,46 @@ if ($camion_filter !== '') {
     $params[':camion_mat'] = $camion_filter;
 }
 if ($operation_filter !== '') {
-    // Joindre la table des opérations et filtrer sur le libellé (valeur transmise depuis le sélecteur)
-    // On couvre plusieurs variantes possibles du nom de clé étrangère dans depollution_voyage
-    $joinOperation = "\n        LEFT JOIN depollution_operation o ON (o.id_depollution_operation = v.id_depollution_operation OR o.id_depollution_operation = v.operation_id OR o.id_depollution_operation = v.depollution_operation_id)";
-    $where[] = 'o.lib_depollution_operation = :operation';
-    $params[':operation'] = $operation_filter;
+    // Détection des colonnes disponibles dans depollution_voyage pour la FK opération
+    $voyCols = [];
+    try {
+        $voyCols = $pdo->query("SHOW COLUMNS FROM depollution_voyage")->fetchAll(PDO::FETCH_COLUMN);
+    } catch (Throwable $e) { /* ignore */
+    }
+    $fkCandidates = ['operation_id', 'id_depollution_operation', 'depollution_operation_id'];
+    $fkFound = null;
+    foreach ($fkCandidates as $c) {
+        if (in_array($c, $voyCols, true)) {
+            $fkFound = $c;
+            break;
+        }
+    }
+    if ($fkFound) {
+        $joinOperation = "\n    LEFT JOIN depollution_operation o ON o.id_depollution_operation = v.$fkFound";
+        $selectOpLabel = ', o.lib_depollution_operation AS operation_label';
+        $where[] = 'o.lib_depollution_operation = :operation';
+        $params[':operation'] = $operation_filter;
+    } else {
+        // Colonne inexistante : le filtre opération est ignoré silencieusement pour éviter erreur SQL
+    }
+} else {
+    // Même si pas de filtre, on peut exposer le libellé si une colonne FK existe (pour affichage)
+    try {
+        $voyCols = $pdo->query("SHOW COLUMNS FROM depollution_voyage")->fetchAll(PDO::FETCH_COLUMN);
+        $fkCandidates = ['operation_id', 'id_depollution_operation', 'depollution_operation_id'];
+        $fkFound = null;
+        foreach ($fkCandidates as $c) {
+            if (in_array($c, $voyCols, true)) {
+                $fkFound = $c;
+                break;
+            }
+        }
+        if ($fkFound) {
+            $joinOperation = "\n    LEFT JOIN depollution_operation o ON o.id_depollution_operation = v.$fkFound";
+            $selectOpLabel = ', o.lib_depollution_operation AS operation_label';
+        }
+    } catch (Throwable $e) { /* ignore */
+    }
 }
 if ($solde_filter === '1') {
     $where[] = 'v.solde = 1';
@@ -64,15 +100,9 @@ if (!$includeCanceled) {
 $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
 
 // Récupération voyages (statut SAISI ou CLOS)
-$sql = "SELECT v.*, p.nom AS prestataire, c.matricule, ch.nom AS chauffeur, ch.telephone, b.numero AS bon
-    FROM depollution_voyage v
-    LEFT JOIN depollution_prestataire p ON p.id=v.prestataire_id
-    LEFT JOIN depollution_camion c ON c.id=v.camion_id
-    LEFT JOIN depollution_chauffeur ch ON ch.id=v.chauffeur_id
-    LEFT JOIN depollution_bon_sortie b ON b.id=v.bon_sortie_id" .
-    $joinOperation . "
-    $whereSql
-    ORDER BY v.date_voyage ASC, v.id ASC";
+$sql = "SELECT v.*, p.nom AS prestataire, c.matricule, ch.nom AS chauffeur, ch.telephone, b.numero AS bon" .
+    $selectOpLabel . "\n    FROM depollution_voyage v\n    LEFT JOIN depollution_prestataire p ON p.id=v.prestataire_id\n    LEFT JOIN depollution_camion c ON c.id=v.camion_id\n    LEFT JOIN depollution_chauffeur ch ON ch.id=v.chauffeur_id\n    LEFT JOIN depollution_bon_sortie b ON b.id=v.bon_sortie_id" .
+    $joinOperation . "\n    $whereSql\n    ORDER BY v.date_voyage ASC, v.id ASC";
 $st = $pdo->prepare($sql);
 $st->execute($params);
 $voyages = $st->fetchAll(PDO::FETCH_ASSOC);
@@ -115,7 +145,7 @@ $prixLitre = ($totalLitres > 0 ? ($totalCarb / $totalLitres) : 0);
 $byDate = [];
 foreach ($voyages as $v) {
     $d = $v['date_voyage'];
-    if (!isset($byDate[$d])) $byDate[$d] = ['montant' => 0, 'carb' => 0, 'reel' => 0, 'voy' => 0, 'litre' => 0, 'cubage' => 0];
+    if (!isset($byDate[$d])) $byDate[$d] = array('montant' => 0, 'carb' => 0, 'reel' => 0, 'voy' => 0, 'litre' => 0, 'cubage' => 0);
     $byDate[$d]['montant'] += (float)$v['montant_origine'];
     $byDate[$d]['carb'] += (float)$v['carburant_montant'];
     $byDate[$d]['reel'] += (float)$v['reel_recu'];
@@ -148,11 +178,11 @@ $serieCubage = array_map(function ($d) {
 }, $byDate);
 
 // Agrégats par prestataire + Top bénéficiaires (cubage)
-$byPrest = [];
+$byPrest = array();
 foreach ($voyages as $v) {
     $pr = $v['prestataire'] ?: 'N/A';
     if (!isset($byPrest[$pr])) {
-        $byPrest[$pr] = [
+        $byPrest[$pr] = array(
             'voyages' => 0,
             'nb_saisi' => 0,
             'cubage' => 0,
@@ -161,7 +191,7 @@ foreach ($voyages as $v) {
             'carb' => 0,
             'litre' => 0,
             'reel' => 0
-        ];
+        );
     }
     $byPrest[$pr]['voyages'] += 1;
     $byPrest[$pr]['nb_saisi'] += (int)$v['nombre_voyage'];
@@ -173,9 +203,9 @@ foreach ($voyages as $v) {
     $byPrest[$pr]['reel'] += (float)$v['reel_recu'];
 }
 ksort($byPrest);
-$topBenefList = [];
+$topBenefList = array();
 foreach ($byPrest as $name => $vals) {
-    $topBenefList[] = ['name' => $name] + $vals;
+    $topBenefList[] = array('name' => $name) + $vals;
 }
 usort($topBenefList, function ($a, $b) {
     if ($a['cubage'] == $b['cubage']) return 0;

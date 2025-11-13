@@ -1214,12 +1214,15 @@ if ($action === 'listVoyages') {
     if ($statut) $clauses[] = 'v.statut = :statut';
     if (!$includeCanceled) $clauses[] = "v.statut <> 'ANNULE'";
     $where = $clauses ? ('WHERE ' . implode(' AND ', $clauses)) : '';
-    $sql = "SELECT v.*, p.nom prestataire, c.matricule, ch.nom chauffeur, ch.telephone, b.id AS bon_id, b.numero bon_numero, b.fichier_path
+    $sql = "SELECT v.*, p.nom prestataire, c.matricule, ch.nom chauffeur, ch.telephone,
+            b.id AS bon_id, b.numero bon_numero, b.fichier_path,
+            op.lib_depollution_operation AS operation_label
             FROM depollution_voyage v
             JOIN depollution_prestataire p ON v.prestataire_id=p.id
             JOIN depollution_camion c ON v.camion_id=c.id
             JOIN depollution_chauffeur ch ON v.chauffeur_id=ch.id
             JOIN depollution_bon_sortie b ON v.bon_sortie_id=b.id
+            LEFT JOIN depollution_operation op ON v.operation_id = op.id_depollution_operation
             $where
             ORDER BY v.id DESC LIMIT :lim";
     $st = $pdo->prepare($sql);
