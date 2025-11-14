@@ -63,6 +63,7 @@
         <h1 class="ml-3 text-sm font-extrabold tracking-wide text-yellow-700">Validation Voyages</h1>
         <div class="ml-auto flex items-center gap-2">
             <button id="refreshBtn" class="btn-outline">Rafraîchir</button>
+            <a href="attach_bons.php" class="btn-outline">Bons sans image</a>
             <a href="admin.php" class="btn-outline">Admin</a>
             <button id="toggleTheme2" class="btn-outline" title="Mode sombre">🌙</button>
         </div>
@@ -72,6 +73,11 @@
             <div class="flex-1">
                 <label class="text-[10px] font-semibold uppercase tracking-wide text-yellow-800 mb-1 block">Filtrer</label>
                 <input id="quickFilter2" type="text" placeholder="Recherche (camion, chauffeur, prestataire)" class="w-full border border-yellow-300 rounded px-3 py-2 text-sm focus:ring-yellow-400 focus:border-yellow-400" />
+            </div>
+            <div class="flex items-center gap-2">
+                <span id="op2With" class="inline-block bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded">Avec: 0</span>
+                <span id="op2Without" class="inline-block bg-gray-100 text-gray-700 text-[10px] px-2 py-0.5 rounded">Sans: 0</span>
+                <button id="refreshAll2" class="btn-outline">Tout rafraîchir</button>
             </div>
         </div>
         <div id="voyagesCards" class="grid-cards mb-8"></div>
@@ -158,6 +164,14 @@
             fetch(API + '?action=listVoyages&statut=SAISI&limit=300').then(r => r.json()).then(j => {
                 if (!j.ok) return;
                 voyages = j.data;
+                // Compteurs avec/sans fichier
+                const all = voyages || [];
+                const withCount = all.filter(v => v.fichier_path).length;
+                const withoutCount = all.length - withCount;
+                const cW = document.getElementById('op2With');
+                const cWO = document.getElementById('op2Without');
+                if (cW) cW.textContent = 'Avec: ' + withCount;
+                if (cWO) cWO.textContent = 'Sans: ' + withoutCount;
                 render();
                 if (selectedId && !voyages.find(v => v.id == selectedId)) clearSelection();
             });
@@ -273,6 +287,15 @@
         document.getElementById('refreshBtn').addEventListener('click', () => {
             load();
         });
+        const refreshAll2 = document.getElementById('refreshAll2');
+        if (refreshAll2) {
+            refreshAll2.addEventListener('click', () => {
+                quick2.value = '';
+                clearSelection();
+                editModal.classList.remove('open');
+                load();
+            });
+        }
         cardsWrap.addEventListener('click', e => {
             const card = e.target.closest('.voy-card');
             if (!card) return;

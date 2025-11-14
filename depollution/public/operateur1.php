@@ -189,6 +189,7 @@ session_start();
             <button id="openModalBtn" class="btn-yellow shadow-sm">Nouveau Voyage</button>
             <a href="recap_carburant.php" class="btn-outline">Récap</a>
             <a href="operateur2.php" class="btn-outline">Opér. 2</a>
+            <a href="attach_bons.php" class="btn-outline">Bons sans image</a>
             <a href="admin.php" class="btn-outline">Admin</a>
         </div>
     </header>
@@ -197,6 +198,7 @@ session_start();
         <div class="text-xs font-semibold tracking-wider text-yellow-700">Navigation</div>
         <a class="btn-outline text-left" href="recap_carburant.php">Récap carburant</a>
         <a class="btn-outline text-left" href="operateur2.php">Opérateur 2</a>
+        <a class="btn-outline text-left" href="attach_bons.php">Bons sans image</a>
         <a class="btn-outline text-left" href="admin.php">Admin</a>
     </nav>
     <!-- Contenu principal -->
@@ -209,7 +211,12 @@ session_start();
                     <input id="quickFilter" type="text" placeholder="Rechercher (chauffeur, camion, prestataire)" class="w-full border border-yellow-300 rounded px-3 py-2 text-sm focus:ring-yellow-400 focus:border-yellow-400" />
                 </div>
                 <div class="flex items-center gap-2">
+                    <span id="op1With" class="inline-block bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded">Avec: 0</span>
+                    <span id="op1Without" class="inline-block bg-gray-100 text-gray-700 text-[10px] px-2 py-0.5 rounded">Sans: 0</span>
+                </div>
+                <div class="flex items-center gap-2">
                     <button id="refreshList" class="btn-outline">Rafraîchir</button>
+                    <button id="refreshAll1" class="btn-outline">Tout rafraîchir</button>
                     <button id="openModalBtn2" class="btn-yellow">+ Nouveau</button>
                 </div>
             </div>
@@ -349,6 +356,16 @@ session_start();
                 setTimeout(applyQuickFilter, 300);
             }
         });
+        const refreshAll1 = document.getElementById('refreshAll1');
+        if (refreshAll1) {
+            refreshAll1.addEventListener('click', () => {
+                quickInput.value = '';
+                if (window.loadRecent) {
+                    loadRecent();
+                    setTimeout(applyQuickFilter, 300);
+                }
+            });
+        }
         // Adapter rendu récent (hook loadRecent existant) pour cartes
         const origLoadRecent = window.loadRecent;
         if (origLoadRecent) {
@@ -357,7 +374,15 @@ session_start();
                     .then(r => r.json())
                     .then(j => {
                         if (!j.ok) return;
-                        recentWrap.innerHTML = j.data.map(v => {
+                        const data = j.data || [];
+                        // Compteurs avec/sans fichier
+                        const withCount = data.filter(v => v.fichier_path).length;
+                        const withoutCount = data.length - withCount;
+                        const cW = document.getElementById('op1With');
+                        const cWO = document.getElementById('op1Without');
+                        if (cW) cW.textContent = 'Avec: ' + withCount;
+                        if (cWO) cWO.textContent = 'Sans: ' + withoutCount;
+                        recentWrap.innerHTML = data.map(v => {
                             const isPdf = (v.fichier_path || '').toLowerCase().endsWith('.pdf');
                             const thumb = v.fichier_path ? (isPdf ?
                                 `<a href='bon_file.php?bon_id=${v.bon_id}' target='_blank' class='block mt-1 text-[10px] text-yellow-800 underline'>Voir PDF</a>` :

@@ -19,6 +19,7 @@ function navItem($href, $label, $current)
         </div>
         <nav id="mainNav" class="hidden md:flex items-center gap-1 text-slate-700 dark:text-slate-200">
             <?= navItem('/depollution/public/recap_carburant.php', 'Recap Carburant', $current) ?>
+            <?= navItem('/depollution/public/attach_bons.php', 'Bons sans image', $current) ?>
             <?= navItem('/depollution/public/index.php', 'Dashboard', $current) ?>
             <?= navItem('/recap_carburant.php', 'Legacy Recap', $current) ?>
         </nav>
@@ -36,6 +37,7 @@ function navItem($href, $label, $current)
     </div>
     <nav id="mobileNav" class="md:hidden hidden px-4 pb-4 flex flex-col gap-1 text-slate-700 dark:text-slate-200">
         <?= navItem('/depollution/public/recap_carburant.php', 'Recap Carburant', $current) ?>
+        <?= navItem('/depollution/public/attach_bons.php', 'Bons sans image', $current) ?>
         <?= navItem('/depollution/public/index.php', 'Dashboard', $current) ?>
         <?= navItem('/recap_carburant.php', 'Legacy Recap', $current) ?>
     </nav>

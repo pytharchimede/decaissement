@@ -1271,5 +1271,85 @@ if ($action === 'configCarburant') {
     json_out(['ok' => true, 'prix_litre' => DEPOLLUTION_CARBURANT_PRIX_LITRE]);
 }
 
+// ---------- Lister les bons sans fichier associé ----------
+if ($action === 'listMissingBons') {
+    $limit = isset($_GET['limit']) ? max(1, min(500, (int)$_GET['limit'])) : 200;
+    $q = isset($_GET['q']) ? trim((string)$_GET['q']) : '';
+    $where = 'WHERE (b.fichier_path IS NULL OR b.fichier_path = "")';
+    $params = [];
+    if ($q !== '') {
+        $where .= ' AND (b.numero LIKE :q OR p.nom LIKE :q)';
+        $params[':q'] = '%' . $q . '%';
+    }
+    $sql = "SELECT b.id AS bon_id, b.numero, COALESCE(MIN(v.id), NULL) AS voyage_id, MAX(p.nom) AS prestataire
+            FROM depollution_bon_sortie b
+            LEFT JOIN depollution_voyage v ON v.bon_sortie_id=b.id AND COALESCE(v.statut,'') <> 'ANNULE'
+            LEFT JOIN depollution_prestataire p ON v.prestataire_id=p.id
+            $where
+            GROUP BY b.id, b.numero
+            ORDER BY b.id DESC
+            LIMIT :lim";
+    $st = $pdo->prepare($sql);
+    foreach ($params as $k => $v) $st->bindValue($k, $v);
+    $st->bindValue(':lim', $limit, PDO::PARAM_INT);
+    $st->execute();
+    $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+    json_out(['ok' => true, 'data' => $rows]);
+}
+
+// ---------- Upload fichier pour un bon existant ----------
+if ($action === 'uploadBonFile') {
+    try {
+        $bonId = isset($_POST['bon_id']) ? (int)$_POST['bon_id'] : 0;
+        if ($bonId <= 0) json_out(['ok' => false, 'error' => 'bon_id requis'], 422);
+        $chk = $pdo->prepare('SELECT id FROM depollution_bon_sortie WHERE id=?');
+        $chk->execute([$bonId]);
+        if (!$chk->fetch()) json_out(['ok' => false, 'error' => 'Bon introuvable'], 404);
+
+        // Vérifier/ajouter la colonne fichier_path si manquante
+        try {
+            $colsBon = $pdo->query('SHOW COLUMNS FROM depollution_bon_sortie')->fetchAll(PDO::FETCH_COLUMN);
+            if ($colsBon && !in_array('fichier_path', $colsBon, true)) {
+                try {
+                    $pdo->exec('ALTER TABLE depollution_bon_sortie ADD COLUMN fichier_path VARCHAR(255) NULL');
+                } catch (Throwable $eAddCol) { /* ignore */
+                }
+            }
+        } catch (Throwable $eCols) { /* ignore */
+        }
+
+        if (empty($_FILES['bon_fichier']) || $_FILES['bon_fichier']['error'] !== UPLOAD_ERR_OK) {
+            $code = isset($_FILES['bon_fichier']['error']) ? (int)$_FILES['bon_fichier']['error'] : -1;
+            json_out(['ok' => false, 'error' => 'Upload invalide', 'error_code' => $code], 400);
+        }
+
+        $uploadDir = __DIR__ . '/../storage/bons';
+        $dirWritable = true;
+        if (!is_dir($uploadDir)) @mkdir($uploadDir, 0777, true);
+        if (!is_dir($uploadDir) || !is_writable($uploadDir)) $dirWritable = false;
+        $origName = $_FILES['bon_fichier']['name'];
+        $safeName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $origName);
+        $finalName = time() . '_' . $safeName;
+        $dest = $uploadDir . '/' . $finalName;
+        $tmp = $_FILES['bon_fichier']['tmp_name'];
+        $isUploaded = is_uploaded_file($tmp);
+        $moved = false;
+        if ($isUploaded && $dirWritable) $moved = @move_uploaded_file($tmp, $dest);
+        if (!$moved && $dirWritable && @copy($tmp, $dest)) {
+            $moved = true;
+            @unlink($tmp);
+        }
+        if (!$moved) json_out(['ok' => false, 'error' => 'Échec écriture fichier', 'dir_writable' => $dirWritable, 'is_uploaded' => $isUploaded], 500);
+        @chmod($dest, 0644);
+        $rel = 'storage/bons/' . $finalName;
+
+        $upd = $pdo->prepare('UPDATE depollution_bon_sortie SET fichier_path=? WHERE id=?');
+        $upd->execute([$rel, $bonId]);
+        json_out(['ok' => true, 'bon_id' => $bonId, 'path' => $rel]);
+    } catch (Throwable $e) {
+        json_out(['ok' => false, 'error' => $e->getMessage()], 400);
+    }
+}
+
 // ---------- Action inconnue ----------
 json_out(['ok' => false, 'error' => 'Action inconnue'], 400);
