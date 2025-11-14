@@ -690,8 +690,12 @@ if ($action === 'importExcelPreview') {
             'sheet' => $sheetName,
             'mapping' => $mapping,
             'rows_total' => count($rows),
-            'rows_valid' => count(array_filter($rows, fn($r) => $r['valid'])),
-            'rows_errors' => count(array_filter($rows, fn($r) => !$r['valid'])),
+            'rows_valid' => count(array_filter($rows, function ($r) {
+                return !empty($r['valid']);
+            })),
+            'rows_errors' => count(array_filter($rows, function ($r) {
+                return empty($r['valid']);
+            })),
             'rows' => $rows
         ];
     }
@@ -766,12 +770,30 @@ if ($action === 'createVoyageOp1') {
 
         // bon sortie
         // Empêcher le même numéro de bon deux fois pour le même prestataire (hors voyages annulés)
+        // Extension: si operation_id fourni et colonne existante, unicité renforcée par opération
         $bonNumeroInput = isset($payload['bon_numero']) ? trim($payload['bon_numero']) : '';
         if ($bonNumeroInput === '') throw new Exception('Numéro de bon manquant');
-        $dupChk = $pdo->prepare('SELECT v.id FROM depollution_voyage v JOIN depollution_bon_sortie b ON v.bon_sortie_id=b.id WHERE b.numero=? AND v.prestataire_id=? AND COALESCE(v.statut,"") <> "ANNULE" LIMIT 1');
-        $dupChk->execute([$bonNumeroInput, $prestId]);
+        $hasOperationColDup = true;
+        try {
+            $pdo->query('SELECT operation_id FROM depollution_voyage LIMIT 1');
+        } catch (Throwable $eOpDup) {
+            $hasOperationColDup = false;
+        }
+        $sqlDup = 'SELECT v.id FROM depollution_voyage v JOIN depollution_bon_sortie b ON v.bon_sortie_id=b.id WHERE b.numero=? AND v.prestataire_id=? AND COALESCE(v.statut,"") <> "ANNULE"';
+        $dupParams = [$bonNumeroInput, $prestId];
+        if ($operationId > 0 && $hasOperationColDup) {
+            $sqlDup .= ' AND v.operation_id=?';
+            $dupParams[] = $operationId;
+        }
+        $sqlDup .= ' LIMIT 1';
+        $dupChk = $pdo->prepare($sqlDup);
+        $dupChk->execute($dupParams);
         if ($dupChk->fetch(PDO::FETCH_ASSOC)) {
-            throw new Exception('Ce numéro de bon est déjà utilisé pour ce prestataire.');
+            if ($operationId > 0 && $hasOperationColDup) {
+                throw new Exception('Ce numéro de bon est déjà utilisé pour ce prestataire sur cette opération.');
+            } else {
+                throw new Exception('Ce numéro de bon est déjà utilisé pour ce prestataire.');
+            }
         }
         // Vérifier présence colonne fichier_path (compat anciennes versions)
         try {
