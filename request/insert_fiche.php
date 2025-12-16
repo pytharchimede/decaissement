@@ -13,11 +13,14 @@ $ficheObj = new Fiche($pdo);
 $emailManagerObj = new EmailManager();
 
 // Envoi notification whatsapp
-$sid = "ACded19f6cd55b2ba3d18c13f438f1e878"; // Votre SID Twilio
-$token = "7f1136b112e6d8cb4a6af94223d0872e"; // Numéro WhatsApp Twilio
-$from = "whatsapp:+2250711048002"; // Numéro WhatsApp Twilio
+// Twilio credentials (idéalement en variables d'environnement)
+$sid = getenv('TWILIO_SID') ?: "ACded19f6cd55b2ba3d18c13f438f1e878";
+$token = getenv('TWILIO_TOKEN') ?: "7f1136b112e6d8cb4a6af94223d0872e";
+$from = getenv('TWILIO_WHATSAPP_FROM') ?: "whatsapp:+2250711048002";
 
-$whatsapp = new WhatsAppSMS($sid, $token, $from);
+// Instancie WhatsAppSMS uniquement si credentials plausibles
+$twilioEnabled = (is_string($sid) && strlen($sid) > 10) && (is_string($token) && strlen($token) > 10) && (is_string($from) && strpos($from, 'whatsapp:') === 0);
+$whatsapp = $twilioEnabled ? new WhatsAppSMS($sid, $token, $from) : null;
 
 
 // Dossiers pour les fichiers
@@ -81,8 +84,15 @@ $data = [
 ];
 
 error_log(json_encode($data));
+// Gardes de session: éviter notices et flux incohérents
+if (!isset($_SESSION['companyName'])) {
+    $_SESSION['companyName'] = '';
+}
+if (!isset($_SESSION['code_autorisation_feb'])) {
+    $_SESSION['code_autorisation_feb'] = '';
+}
 
-if ($data['code_autorisation_feb'] == 'Pas autorise' || !isset($data['code_autorisation_feb']) || $_SESSION['companyName'] == '' || !isset($_SESSION['companyName'])) {
+if ($data['code_autorisation_feb'] == 'Pas autorise' || $_SESSION['companyName'] == '') {
     // Retourner un message de succès
     echo json_encode(["status" => "error", "message" => "Session expirée ou inexistante ! Veuillez recommencer svp."]);
     exit; // Arrête l'exécution du script
@@ -136,11 +146,14 @@ if ($ficheObj->insertFiche($data)) {
     // Envoyer l'email
     $emailManagerObj->sendEmail($subject, $body, $recipients);
 
-    //Envoyer message de confirmation de soumission au demandeur
+    //Envoyer message de confirmation de soumission au demandeur (si Twilio activé)
     $whatsappNumber = "+225" . $data['tel_beneficiaire_fiche'];
     $num_fiche = $data['num_fiche'];
-
-    // $whatsapp->sendConfirmationSoumissionFicheDecaissement($whatsappNumber, $data['beficiaire_fiche'], $data['num_fiche']);
+    if ($twilioEnabled && $whatsapp) {
+        // $whatsapp->sendConfirmationSoumissionFicheDecaissement($whatsappNumber, $data['beficiaire_fiche'], $data['num_fiche']);
+    } else {
+        error_log('Twilio disabled: skipping confirmation send');
+    }
 
     // Vérifier si la demande concerne le carburant dans precision_fiche ou designation_fiche
     $texte_precision = isset($data['precision_fiche']) ? $data['precision_fiche'] : '';
@@ -159,13 +172,17 @@ if ($ficheObj->insertFiche($data)) {
         $whatsappNumberDG = "+225" . $num_dg;
 
         // Appel à la méthode d'envoi de l'alerte au DG avec call-to-action
-        $responseApproval = $whatsapp->sendCarburantManageCallToAction(
-            $whatsappNumberDG,
-            $data['num_fiche'],
-            $data['montant_fiche'],
-            $data['beficiaire_fiche'],
-            $texte_precision ?: $texte_designation
-        );
+        if ($twilioEnabled && $whatsapp) {
+            $responseApproval = $whatsapp->sendCarburantManageCallToAction(
+                $whatsappNumberDG,
+                $data['num_fiche'],
+                $data['montant_fiche'],
+                $data['beficiaire_fiche'],
+                $texte_precision ?: $texte_designation
+            );
+        } else {
+            $responseApproval = ['status' => 'skipped', 'message' => 'Twilio disabled'];
+        }
 
         // Débogage : Vérifier la réponse de Twilio
         if ($responseApproval['status'] !== 'success') {
@@ -187,13 +204,17 @@ if ($ficheObj->insertFiche($data)) {
         $whatsappNumberDG = "+225" . $num_dg;
 
         // Appel à la méthode d'envoi de l'alerte URGENCE réparation
-        $responseApproval = $whatsapp->sendUrgentReparationCallToAction(
-            $whatsappNumberDG,
-            $data['num_fiche'],
-            $data['montant_fiche'],
-            $data['beficiaire_fiche'],
-            $texte_precision ?: $texte_designation
-        );
+        if ($twilioEnabled && $whatsapp) {
+            $responseApproval = $whatsapp->sendUrgentReparationCallToAction(
+                $whatsappNumberDG,
+                $data['num_fiche'],
+                $data['montant_fiche'],
+                $data['beficiaire_fiche'],
+                $texte_precision ?: $texte_designation
+            );
+        } else {
+            $responseApproval = ['status' => 'skipped', 'message' => 'Twilio disabled'];
+        }
 
         // Débogage : Vérifier la réponse de Twilio
         if ($responseApproval['status'] !== 'success') {
