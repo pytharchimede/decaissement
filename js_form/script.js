@@ -5,6 +5,90 @@ document.addEventListener("DOMContentLoaded", function () {
   const totalSteps = steps.length;
   let currentStep = 0;
 
+  // Preset spécial : "BUREAU FIDEST BANAMUR" -> entreprise BANAMUR + chantier CH0066
+  const SPECIAL_COMPANY_BUREAU_FIDEST_BANAMUR = "BUREAU FIDEST BANAMUR";
+  const SPECIAL_CHANTIER_CODE_TARGET = "ch0066"; // match insensible à la casse (code/num_chantier)
+  window.__presetBureauBanamurActive = false;
+
+  function isSpecialBureauFidestBanamur(companyName) {
+    return (
+      String(companyName || "").trim() === SPECIAL_COMPANY_BUREAU_FIDEST_BANAMUR
+    );
+  }
+
+  function normalizeEntrepriseSelection(companyName) {
+    return isSpecialBureauFidestBanamur(companyName) ? "BANAMUR" : companyName;
+  }
+
+  function ensureHiddenField(id, name, value) {
+    let el = document.getElementById(id);
+    if (!el) {
+      el = document.createElement("input");
+      el.type = "hidden";
+      el.id = id;
+      el.name = name;
+      (document.getElementById("form_fiche") || document.body).appendChild(el);
+    }
+    el.value = value ?? "";
+    return el;
+  }
+
+  function removeHiddenField(id) {
+    const el = document.getElementById(id);
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  }
+
+  function setAffectationLocked(locked) {
+    const affectationEl = document.getElementById("affectation");
+    if (!affectationEl) return;
+    if (locked) {
+      affectationEl.setAttribute("disabled", "disabled");
+      affectationEl.classList.add("bg-light");
+      ensureHiddenField(
+        "affectation_locked_value",
+        "affectation",
+        affectationEl.value,
+      );
+    } else {
+      affectationEl.removeAttribute("disabled");
+      affectationEl.classList.remove("bg-light");
+      removeHiddenField("affectation_locked_value");
+    }
+  }
+
+  function setChantierLocked(locked) {
+    const chantierEl = document.getElementById("chantier");
+    if (!chantierEl) return;
+    if (locked) {
+      chantierEl.setAttribute("disabled", "disabled");
+      chantierEl.classList.add("bg-light");
+      ensureHiddenField("chantier_locked_value", "chantier", chantierEl.value);
+    } else {
+      chantierEl.removeAttribute("disabled");
+      chantierEl.classList.remove("bg-light");
+      removeHiddenField("chantier_locked_value");
+    }
+  }
+
+  function clearPresetBureauBanamur() {
+    window.__presetBureauBanamurActive = false;
+    setAffectationLocked(false);
+    setChantierLocked(false);
+  }
+
+  function applyPresetBureauBanamurIfNeeded() {
+    if (!window.__presetBureauBanamurActive) return;
+    const affectationEl = document.getElementById("affectation");
+    if (!affectationEl) return;
+    if (affectationEl.value !== "1") affectationEl.value = "1";
+    try {
+      affectationEl.dispatchEvent(new Event("change", { bubbles: true }));
+    } catch (e) {
+      affectationEl.dispatchEvent(new Event("change"));
+    }
+    setAffectationLocked(true);
+  }
+
   //Log choix du mode de paiement
   document.querySelectorAll('input[name="mode_paiement"]').forEach((radio) => {
     radio.addEventListener("change", (event) => {
@@ -39,6 +123,11 @@ document.addEventListener("DOMContentLoaded", function () {
       document.querySelector(targetStep).classList.add("active");
       currentStep++;
       updateProgressBar();
+
+      // En entrant dans l'étape 2, appliquer le preset si nécessaire
+      if (targetStep === "#step-2") {
+        applyPresetBureauBanamurIfNeeded();
+      }
     });
   });
 
@@ -68,7 +157,17 @@ document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll(".company-card").forEach((card) => {
     card.addEventListener("click", function () {
       // Récupérer l'identifiant ou le nom de l'entreprise
-      const entreprise = this.getAttribute("data-company");
+      const entrepriseRaw = this.getAttribute("data-company");
+      const entreprise = normalizeEntrepriseSelection(entrepriseRaw);
+
+      if (isSpecialBureauFidestBanamur(entrepriseRaw)) {
+        window.__presetBureauBanamurActive = true;
+      } else {
+        clearPresetBureauBanamur();
+      }
+
+      // Forcer affectation chantier pour le preset (même si l'étape 2 n'est pas encore visible)
+      applyPresetBureauBanamurIfNeeded();
 
       // Afficher le loader ou indiquer le chargement (optionnel)
       const chantierSelect = document.getElementById("chantier-select");
@@ -76,7 +175,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const chantierDropdown = document.getElementById("chantier");
       chantierDropdown.innerHTML = '<option value="">Chargement...</option>';
 
-      console.log("entreprise choisie " + entreprise);
+      console.log("entreprise choisie " + entrepriseRaw, "->", entreprise);
 
       // Envoyer la requête à charge_chantier.php
       fetch("request/charge_chantier.php", {
@@ -102,7 +201,7 @@ document.addEventListener("DOMContentLoaded", function () {
             } catch (e) {
               console.error("JSON parse error:", e);
               throw new Error(
-                "Réponse invalide du serveur: " + text.substring(0, 100)
+                "Réponse invalide du serveur: " + text.substring(0, 100),
               );
             }
           });
@@ -128,6 +227,60 @@ document.addEventListener("DOMContentLoaded", function () {
               chantierDropdown.appendChild(option);
             });
             console.log("Chantiers ajoutés avec succès!");
+
+            // Auto-sélection + verrouillage du chantier CH0066 si preset actif
+            if (window.__presetBureauBanamurActive) {
+              const needle = SPECIAL_CHANTIER_CODE_TARGET;
+              let matchedValue = null;
+
+              try {
+                const matchData = (data || []).find((c) => {
+                  const num = String(c.num_chantier || "")
+                    .toLowerCase()
+                    .replace(/\s+/g, "")
+                    .trim();
+                  // priorité au code/num_chantier
+                  if (num) return num === needle;
+                  // fallback: libellé
+                  const lib = String(c.lib_chantier || "").toLowerCase();
+                  return lib.includes(needle);
+                });
+                if (matchData && matchData.id_chantier)
+                  matchedValue = String(matchData.id_chantier);
+              } catch (e) {
+                matchedValue = null;
+              }
+
+              if (!matchedValue) {
+                const opts = Array.from(chantierDropdown.options || []);
+                const foundOpt = opts.find((o) =>
+                  String(o.textContent || "")
+                    .toLowerCase()
+                    .replace(/\s+/g, "")
+                    .trim()
+                    .startsWith(needle),
+                );
+                if (foundOpt && foundOpt.value)
+                  matchedValue = String(foundOpt.value);
+              }
+
+              if (matchedValue) {
+                chantierDropdown.value = matchedValue;
+                // Déclencher ce qui découle de la sélection (motifs/débourses)
+                try {
+                  chantierDropdown.dispatchEvent(
+                    new Event("change", { bubbles: true }),
+                  );
+                } catch (e) {
+                  chantierDropdown.dispatchEvent(new Event("change"));
+                }
+                // Verrouiller / griser le champ chantier (et conserver la valeur au submit)
+                setChantierLocked(true);
+              } else {
+                console.warn("Chantier CH0066 introuvable pour auto-sélection");
+                setChantierLocked(false);
+              }
+            }
           } else if (data && data.error) {
             // Erreur retournée par le serveur
             console.error("Erreur serveur:", data.error);
@@ -238,7 +391,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (optText && shouldRedirect) {
       console.log(
         "Redirection vers formulaire projet pour le chantier:",
-        optText
+        optText,
       );
       window.location.href =
         "https://projet.fidest.ci/decaissement/formulaire_demande_decaissement.php";
@@ -338,7 +491,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     fileInput.addEventListener("change", () =>
-      displayPreview(fileInput, previewId)
+      displayPreview(fileInput, previewId),
     );
   }
 
@@ -367,7 +520,8 @@ document.addEventListener("DOMContentLoaded", function () {
             console.log(response.message); // Affiche un message de succès
           } else {
             console.log(
-              response.message || "Une erreur est survenue. Veuillez réessayer."
+              response.message ||
+                "Une erreur est survenue. Veuillez réessayer.",
             );
           }
         },
@@ -426,7 +580,8 @@ document.addEventListener("DOMContentLoaded", function () {
             window.location.href = "../signer_fiche/index.php";
           } else {
             alert(
-              response.message || "Une erreur est survenue. Veuillez réessayer."
+              response.message ||
+                "Une erreur est survenue. Veuillez réessayer.",
             );
           }
         },
@@ -434,7 +589,7 @@ document.addEventListener("DOMContentLoaded", function () {
           // Gestion des erreurs
           console.error("Erreur:", error);
           alert(
-            "Erreur lors de l'envoi de la demande. Veuillez vérifier votre connexion."
+            "Erreur lors de l'envoi de la demande. Veuillez vérifier votre connexion.",
           );
         },
         complete: function () {
@@ -477,13 +632,13 @@ document.addEventListener("DOMContentLoaded", function () {
       if (cleanNumber.length === 10) {
         return cleanNumber.replace(
           /(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/,
-          "$1 $2 $3 $4 $5"
+          "$1 $2 $3 $4 $5",
         );
       } else if (cleanNumber.length === 8) {
         // Format alternatif (par exemple, pour un numéro sans indicatif)
         return cleanNumber.replace(
           /(\d{2})(\d{2})(\d{2})(\d{2})/,
-          "$1 $2 $3 $4"
+          "$1 $2 $3 $4",
         );
       }
 
